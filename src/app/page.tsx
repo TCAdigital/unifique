@@ -21,6 +21,7 @@ import {
   CalendarDays,
   Loader2,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
 interface DashStats {
   totalEmpresas: number;
@@ -57,6 +58,7 @@ export default function Home() {
     proximasTarefas: [],
   });
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     async function loadDashboard() {
@@ -113,7 +115,7 @@ export default function Home() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white font-outfit">
-              Olá, Tadeu Alves
+              Olá, {user?.nome?.split(" ")[0] ?? "Tadeu"}
             </h1>
             <p className="text-slate-500 mt-1">
               Aqui está o que está acontecendo na Unifique hoje.

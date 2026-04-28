@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Desativa dark mode automático por media query — usa apenas classe explícita .dark */
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Paleta Unifique — fonte: PRD v2.0 */
   --color-unifique-primary:      #0057B8;

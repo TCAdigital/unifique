@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard,
   Building2,
@@ -8,6 +9,7 @@ import {
   CheckSquare,
   BarChart3,
   Cpu,
+  LogOut,
   MessageSquare,
   Settings,
   ChevronLeft,
@@ -90,6 +92,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, toggle }: SidebarProps) {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
 
   return (
     <aside
@@ -175,13 +178,22 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
       <div className="p-4 flex-shrink-0" style={{ borderTop: "1px solid rgba(0,200,240,0.12)" }}>
         <div className={cn("flex items-center gap-3", !isOpen && "justify-center")}>
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-unifique-primary to-unifique-cyan flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-lg">
-            TA
+            {user?.avatar ?? "?"}
           </div>
           {isOpen && (
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-white truncate">Tadeu Alves</p>
-              <p className="text-[10px] truncate" style={{ color: "#7A9BB8" }}>Admin · Unifique</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-white truncate">{user?.nome ?? "—"}</p>
+              <p className="text-[10px] truncate capitalize" style={{ color: "#7A9BB8" }}>{user?.perfil} · Unifique</p>
             </div>
+          )}
+          {isOpen && (
+            <button
+              onClick={logout}
+              className="ml-auto p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all flex-shrink-0"
+              title="Sair"
+            >
+              <LogOut size={15} />
+            </button>
           )}
         </div>
       </div>
