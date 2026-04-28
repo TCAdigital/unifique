@@ -33,6 +33,10 @@ const MENU_ITEMS = [
     { id: 'agentes', label: 'Agentes Live', icon: Cpu, href: '/agentes' },
     { id: 'forecast', label: 'Forecast IA', icon: TrendingUp, href: '/forecast' },
   ]},
+  { group: 'BACKOFFICE TI', items: [
+    { id: 'ti-cadastro', label: 'Estoque TIC', icon: CheckSquare, href: '/ti/estoque' },
+    { id: 'ti-vendas', label: 'Vendas TI', icon: DollarSign, href: '/ti/vendas' },
+  ]},
 ];
 
 interface SidebarProps {
