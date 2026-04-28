@@ -21,6 +21,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const PRIORIDADES = {
@@ -54,6 +55,7 @@ export default function AtividadesPage() {
   const [form, setForm] = useState(BLANK_FORM);
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState('');
+  const { user } = useAuth();
   const [completing, setCompleting] = useState<string | null>(null);
 
   async function fetchTarefas() {
@@ -95,6 +97,7 @@ export default function AtividadesPage() {
       prazo: form.prazo,
       prioridade: form.prioridade,
       status: 'Pendente',
+      responsavel_id: user?.id ?? null,
     }]);
 
     setSaving(false);

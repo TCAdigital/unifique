@@ -35,21 +35,23 @@ const STATUS_CONFIG = {
   "Em pausa": { color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800", icon: Clock },
 };
 
+function statusFromNegocio(n: Negocio): Projeto["status"] {
+  if (n.fase === "Contrato" && n.probabilidade >= 90) return "Concluído";
+  if (n.prev_fechamento && new Date(n.prev_fechamento) < new Date() && n.probabilidade < 90) return "Atrasado";
+  return "Em andamento";
+}
+
 function buildProjetosFromNegocios(negocios: Negocio[]): Projeto[] {
-  return negocios.map((n) => {
-    const projetoData = (n as any).projeto ?? {};
-    return {
-      id: n.id,
-      nome: n.nome,
-      empresa: n.empresas?.nome ?? "—",
-      valor: n.valor,
-      status: projetoData.status ?? "Em andamento",
-      progresso: projetoData.progresso ?? Math.floor(Math.random() * 60 + 20),
-      inicio: projetoData.inicio ?? n.created_at?.slice(0, 10),
-      previsao: projetoData.previsao ?? n.prev_fechamento,
-      responsavel: projetoData.responsavel,
-    } as Projeto;
-  });
+  return negocios.map((n) => ({
+    id: n.id,
+    nome: n.nome,
+    empresa: n.empresas?.nome ?? "—",
+    valor: n.valor,
+    status: statusFromNegocio(n),
+    progresso: Math.min(n.probabilidade, 100),
+    inicio: n.created_at?.slice(0, 10),
+    previsao: n.prev_fechamento,
+  }));
 }
 
 export default function ProjetosPage() {

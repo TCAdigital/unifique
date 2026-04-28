@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 interface AuthUser {
+  id: string;
   nome: string;
   email: string;
   perfil: "admin" | "gerente" | "consultor" | "preVenda";
@@ -20,15 +21,15 @@ interface AuthContextValue {
 const USERS: Record<string, { password: string; user: AuthUser }> = {
   "tadeu.alves@redeunifique.com.br": {
     password: "unifique@2026",
-    user: { nome: "Tadeu Alves", email: "tadeu.alves@redeunifique.com.br", perfil: "admin", avatar: "TA" },
+    user: { id: "a1000000-0000-0000-0000-000000000001", nome: "Tadeu Alves", email: "tadeu.alves@redeunifique.com.br", perfil: "admin", avatar: "TA" },
   },
   "maria.souza@redeunifique.com.br": {
     password: "unifique@2026",
-    user: { nome: "Maria Souza", email: "maria.souza@redeunifique.com.br", perfil: "gerente", avatar: "MS" },
+    user: { id: "a1000000-0000-0000-0000-000000000002", nome: "Maria Souza", email: "maria.souza@redeunifique.com.br", perfil: "gerente", avatar: "MS" },
   },
   "joao.silva@redeunifique.com.br": {
     password: "unifique@2026",
-    user: { nome: "João Silva", email: "joao.silva@redeunifique.com.br", perfil: "consultor", avatar: "JS" },
+    user: { id: "a1000000-0000-0000-0000-000000000003", nome: "João Silva", email: "joao.silva@redeunifique.com.br", perfil: "consultor", avatar: "JS" },
   },
 };
 

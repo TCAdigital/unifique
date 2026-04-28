@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAuth } from "@/lib/auth";
 import { Shell } from "@/components/layout/Shell";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -69,6 +70,7 @@ const EMPTY_FORM: FormData = {
 };
 
 export default function OrcamentoPage() {
+  const { user } = useAuth();
   const [items, setItems] = useState<Orcamento[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -95,7 +97,7 @@ export default function OrcamentoPage() {
     if (!form.descricao || !form.orcamento) return;
     setSaving(true);
     await supabase.from("orcamentos").insert({
-      consultor_id: "00000000-0000-0000-0000-000000000001",
+      consultor_id: user?.id ?? null,
       periodo: `${form.periodo}-01`,
       categoria: form.categoria,
       descricao: form.descricao,

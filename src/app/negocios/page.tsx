@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const FASES: { id: Negocio['fase']; color: string }[] = [
@@ -48,6 +49,7 @@ const BLANK_FORM = {
 export default function NegociosPage() {
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [showModal, setShowModal] = useState(false);
@@ -93,6 +95,7 @@ export default function NegociosPage() {
       investimento: parseFloat(form.investimento) || 0,
       leads: parseInt(form.leads) || 0,
       prev_fechamento: form.prev_fechamento || null,
+      responsavel_id: user?.id ?? null,
     }]);
 
     setSaving(false);
