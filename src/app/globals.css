@@ -1,28 +1,33 @@
 @import "tailwindcss";
 
 @theme {
-  --color-unifique-primary: #0057B8;
-  --color-unifique-cyan: #00C8F0;
-  --color-unifique-success: #1D9E75;
-  --color-unifique-dark: #0A0A0A;
-  --color-unifique-side: #1A1A1A;
-  
+  /* Paleta Unifique — fonte: PRD v2.0 */
+  --color-unifique-primary:      #0057B8;
+  --color-unifique-light:        #00A3E0;
+  --color-unifique-cyan:         #00C8F0;
+  --color-unifique-dark:         #002E6D;
+  --color-unifique-side:         #001840;
+  --color-unifique-bg:           #EEF5FF;
+  --color-unifique-bg-card:      #FFFFFF;
+  --color-unifique-success:      #1D9E75;
+  --color-unifique-warning:      #D97706;
+  --color-unifique-danger:       #DC2626;
+  --color-unifique-info:         #EBF4FF;
+  --color-unifique-text-sec:     #3A5A80;
+  --color-unifique-text-muted:   #7A9BB8;
+  --color-unifique-border:       #C5D8F0;
+  --color-unifique-border-light: #E2EEF9;
+
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  
-  --radius-xl: 1rem;
+
+  --radius-xl:  1rem;
   --radius-2xl: 1.5rem;
 }
 
+/* Tema fixo em light — sem dark mode automático */
 :root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #EEF5FF;
+  --foreground: #002E6D;
 }
 
 body {
@@ -33,25 +38,34 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Glassmorphism Utilities */
+/* ── Cards ────────────────────────────────────────────── */
 .glass-card {
-  @apply bg-white/70 dark:bg-unifique-dark/70 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-xl rounded-xl;
+  background: #FFFFFF;
+  border: 1px solid #E2EEF9;
+  border-radius: 0.875rem;
+  box-shadow:
+    0 1px 2px rgba(0, 46, 109, 0.04),
+    0 4px 12px rgba(0, 87, 184, 0.06);
 }
 
+.glass-card:hover {
+  box-shadow:
+    0 1px 2px rgba(0, 46, 109, 0.06),
+    0 8px 24px rgba(0, 87, 184, 0.10);
+}
+
+/* ── Header / Nav ─────────────────────────────────────── */
 .glass-nav {
-  @apply bg-white/80 dark:bg-unifique-side/80 backdrop-blur-lg border-b border-white/10;
+  background: #FFFFFF;
+  border-bottom: 1px solid #C5D8F0;
+  box-shadow: 0 1px 0 rgba(0, 87, 184, 0.06);
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* ── Scrollbar ────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  @apply bg-unifique-primary/20 rounded-full;
+  background: #C5D8F0;
+  border-radius: 9999px;
 }
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-unifique-primary/40;
-}
+::-webkit-scrollbar-thumb:hover { background: #0057B8; }

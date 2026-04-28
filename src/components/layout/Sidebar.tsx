@@ -94,9 +94,10 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "relative h-full bg-unifique-side text-slate-300 transition-all duration-300 border-r border-white/5 flex flex-col",
+        "relative h-full transition-all duration-300 flex flex-col",
         isOpen ? "w-64" : "w-20"
       )}
+      style={{ background: "linear-gradient(180deg, #001840 0%, #002E6D 100%)", borderRight: "1px solid rgba(0,200,240,0.08)" }}
     >
       {/* Logo */}
       <div className="p-6 flex items-center justify-between flex-shrink-0">
@@ -117,7 +118,8 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
       {/* Toggle */}
       <button
         onClick={toggle}
-        className="absolute -right-3 top-20 bg-unifique-primary text-white rounded-full p-1 shadow-lg border-2 border-unifique-side z-10"
+        className="absolute -right-3 top-20 bg-unifique-primary text-white rounded-full p-1 z-10 shadow-md"
+        style={{ border: "2px solid #001840" }}
       >
         {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
       </button>
@@ -127,7 +129,7 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
         {MENU_ITEMS.map((group) => (
           <div key={group.group} className="space-y-0.5">
             {isOpen && (
-              <p className="px-3 pt-3 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              <p className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7A9BB8" }}>
                 {group.group}
               </p>
             )}
@@ -142,9 +144,10 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group",
                     isActive
-                      ? "bg-unifique-primary/10 text-unifique-cyan"
-                      : "hover:bg-white/5 hover:text-white"
+                      ? "text-white"
+                      : "hover:text-white text-slate-400"
                   )}
+                  style={isActive ? { background: "linear-gradient(90deg, rgba(0,87,184,0.7) 0%, rgba(0,200,240,0.15) 100%)", borderLeft: "2px solid #00C8F0" } : undefined}
                   title={!isOpen ? item.label : undefined}
                 >
                   <Icon
@@ -169,15 +172,15 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
       </nav>
 
       {/* User Footer */}
-      <div className="p-4 border-t border-white/5 flex-shrink-0">
+      <div className="p-4 flex-shrink-0" style={{ borderTop: "1px solid rgba(0,200,240,0.12)" }}>
         <div className={cn("flex items-center gap-3", !isOpen && "justify-center")}>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-unifique-primary to-unifique-cyan flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-unifique-primary to-unifique-cyan flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-lg">
             TA
           </div>
           {isOpen && (
             <div className="min-w-0">
               <p className="text-xs font-bold text-white truncate">Tadeu Alves</p>
-              <p className="text-[10px] text-slate-500 truncate">Admin · Unifique</p>
+              <p className="text-[10px] truncate" style={{ color: "#7A9BB8" }}>Admin · Unifique</p>
             </div>
           )}
         </div>
