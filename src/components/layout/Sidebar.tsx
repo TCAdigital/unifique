@@ -14,7 +14,8 @@ import {
   ChevronRight,
   TrendingUp,
   Target,
-  DollarSign
+  DollarSign,
+  Flag
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -28,6 +29,7 @@ const MENU_ITEMS = [
     { id: 'empresas', label: 'Empresas', icon: Building2, href: '/empresas' },
     { id: 'negocios', label: 'Negócios', icon: Briefcase, href: '/negocios' },
     { id: 'atividades', label: 'Atividades', icon: CheckSquare, href: '/atividades' },
+    { id: 'okr', label: 'OKR & Metas', icon: Flag, href: '/okr' },
     { id: 'ticket', label: 'Estratégia', icon: Target, href: '/ticket' },
   ]},
   { group: 'IA & INSIGHTS', items: [
