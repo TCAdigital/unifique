@@ -119,10 +119,10 @@ export default function ForecastPage() {
             </h3>
             <div className="space-y-6">
               {[
-                { stage: 'Prospecção', value: 920000, prob: '15%', h: 'w-full', color: 'bg-slate-400' },
-                { stage: 'Qualificação', value: 650000, prob: '35%', h: 'w-[75%]', color: 'bg-blue-400' },
-                { stage: 'Proposta', value: 420000, prob: '60%', h: 'w-[50%]', color: 'bg-amber-400' },
-                { stage: 'Fechamento', value: 180000, prob: '90%', h: 'w-[25%]', color: 'bg-emerald-500' },
+                { stage: 'Prospecção', valor: 920000, prob: '15%', h: 'w-full', color: 'bg-slate-400' },
+                { stage: 'Qualificação', valor: 650000, prob: '35%', h: 'w-[75%]', color: 'bg-blue-400' },
+                { stage: 'Proposta', valor: 420000, prob: '60%', h: 'w-[50%]', color: 'bg-amber-400' },
+                { stage: 'Fechamento', valor: 180000, prob: '90%', h: 'w-[25%]', color: 'bg-emerald-500' },
               ].map((item) => (
                 <div key={item.stage} className="relative">
                   <div className="flex justify-between items-center mb-2">
