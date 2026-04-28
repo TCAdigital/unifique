@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --color-unifique-primary: #0057B8;
+  --color-unifique-cyan: #00C8F0;
+  --color-unifique-success: #1D9E75;
+  --color-unifique-dark: #0A0A0A;
+  --color-unifique-side: #1A1A1A;
+  
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glassmorphism Utilities */
+.glass-card {
+  @apply bg-white/70 dark:bg-unifique-dark/70 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-xl rounded-xl;
+}
+
+.glass-nav {
+  @apply bg-white/80 dark:bg-unifique-side/80 backdrop-blur-lg border-b border-white/10;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-unifique-primary/20 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-unifique-primary/40;
+}
