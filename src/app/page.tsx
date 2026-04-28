@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/auth";
 
 interface DashStats {
   totalEmpresas: number;
+  totalNegocios: number;
   pipelineTotal: number;
   winRate: number;
   negociosRecentes: Negocio[];
@@ -52,6 +53,7 @@ const TIPO_ICONS: Record<string, React.ElementType> = {
 export default function Home() {
   const [stats, setStats] = useState<DashStats>({
     totalEmpresas: 0,
+    totalNegocios: 0,
     pipelineTotal: 0,
     winRate: 0,
     negociosRecentes: [],
@@ -91,6 +93,7 @@ export default function Home() {
 
       setStats({
         totalEmpresas: empresasRes.count ?? 0,
+        totalNegocios: allNegocios.length,
         pipelineTotal,
         winRate,
         negociosRecentes: allNegocios.slice(0, 5),
@@ -126,9 +129,9 @@ export default function Home() {
               <span className="w-2 h-2 rounded-full bg-unifique-success animate-pulse" />
               Sistema Online
             </div>
-            <button className="px-4 py-2 bg-unifique-primary text-white rounded-xl shadow-lg shadow-unifique-primary/25 text-sm font-bold hover:scale-[1.02] active:scale-[0.98] transition-all">
-              Gerar Relatório Q2
-            </button>
+            <a href="/ti/relatorios" className="px-4 py-2 bg-unifique-primary text-white rounded-xl shadow-lg shadow-unifique-primary/25 text-sm font-bold hover:scale-[1.02] active:scale-[0.98] transition-all">
+              Ver Relatórios
+            </a>
           </div>
         </div>
 
@@ -160,8 +163,8 @@ export default function Home() {
           />
           <KpiCard
             title="Negócios no CRM"
-            value={loading ? "—" : String(stats.negociosRecentes.length > 5 ? "5+" : stats.negociosRecentes.length)}
-            trend="Recentes"
+            value={loading ? "—" : String(stats.totalNegocios)}
+            trend="Total"
             icon={Target}
             color="purple"
             loading={loading}
@@ -230,7 +233,7 @@ export default function Home() {
 
           {/* Sidebar: Forecast + Tasks */}
           <div className="space-y-6">
-            <div className="glass-card p-6 bg-gradient-to-br from-unifique-primary to-blue-700 text-white border-none">
+            <div className="p-6 text-white rounded-[0.875rem] shadow-lg" style={{ background: 'linear-gradient(135deg, #0057B8 0%, #1d4ed8 100%)', border: 'none' }}>
               <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center mb-4">
                 <TrendingUp size={20} />
               </div>
