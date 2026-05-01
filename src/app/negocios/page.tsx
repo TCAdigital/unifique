@@ -12,6 +12,8 @@ import {
   List as ListIcon,
   X,
   Loader2,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
@@ -46,6 +48,20 @@ const BLANK_FORM = {
   leads: '0',
 };
 
+function negocioToForm(n: Negocio) {
+  return {
+    nome: n.nome,
+    empresa_id: n.empresa_id,
+    valor: String(n.valor),
+    fase: n.fase,
+    probabilidade: String(n.probabilidade),
+    curva: n.curva ?? 'B',
+    prev_fechamento: n.prev_fechamento ? n.prev_fechamento.split('T')[0] : '',
+    investimento: String(n.investimento),
+    leads: String(n.leads),
+  };
+}
+
 export default function NegociosPage() {
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -53,8 +69,11 @@ export default function NegociosPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [form, setForm] = useState(BLANK_FORM);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [erro, setErro] = useState('');
 
   async function fetchNegocios() {
@@ -73,8 +92,18 @@ export default function NegociosPage() {
     });
   }, []);
 
-  function openModal() {
+  function openCreate() {
+    setEditingId(null);
+    setConfirmDelete(false);
     setForm({ ...BLANK_FORM, empresa_id: empresas[0]?.id ?? '' });
+    setErro('');
+    setShowModal(true);
+  }
+
+  function openEdit(negocio: Negocio) {
+    setEditingId(negocio.id);
+    setConfirmDelete(false);
+    setForm(negocioToForm(negocio));
     setErro('');
     setShowModal(true);
   }
@@ -85,7 +114,7 @@ export default function NegociosPage() {
     setSaving(true);
     setErro('');
 
-    const { error } = await supabase.from('negocios').insert([{
+    const payload = {
       nome: form.nome.trim(),
       empresa_id: form.empresa_id,
       valor: parseFloat(form.valor) || 0,
@@ -95,7 +124,14 @@ export default function NegociosPage() {
       investimento: parseFloat(form.investimento) || 0,
       leads: parseInt(form.leads) || 0,
       prev_fechamento: form.prev_fechamento || null,
-    }]);
+    };
+
+    let error;
+    if (editingId) {
+      ({ error } = await supabase.from('negocios').update(payload).eq('id', editingId));
+    } else {
+      ({ error } = await supabase.from('negocios').insert([payload]));
+    }
 
     setSaving(false);
     if (error) { setErro('Erro ao salvar: ' + error.message); return; }
@@ -103,6 +139,15 @@ export default function NegociosPage() {
     setShowModal(false);
     setLoading(true);
     fetchNegocios();
+  }
+
+  async function handleDelete() {
+    if (!editingId) return;
+    setDeleting(true);
+    await supabase.from('negocios').delete().eq('id', editingId);
+    setDeleting(false);
+    setShowModal(false);
+    setNegocios(prev => prev.filter(n => n.id !== editingId));
   }
 
   return (
@@ -130,7 +175,7 @@ export default function NegociosPage() {
               </button>
             </div>
             <button
-              onClick={openModal}
+              onClick={openCreate}
               className="flex items-center gap-2 px-4 py-2 bg-unifique-primary text-white rounded-xl font-bold shadow-lg shadow-unifique-primary/20 hover:scale-[1.02] transition-all"
             >
               <Plus size={18} />
@@ -173,6 +218,7 @@ export default function NegociosPage() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.05 }}
                           layout
+                          onClick={() => openEdit(negocio)}
                           className="glass-card p-4 hover:border-unifique-primary/50 cursor-pointer group transition-all"
                         >
                           <div className="flex justify-between items-start mb-2">
@@ -235,6 +281,7 @@ export default function NegociosPage() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: idx * 0.03 }}
+                    onClick={() => openEdit(negocio)}
                     className="hover:bg-slate-50 transition-all cursor-pointer"
                   >
                     <td className="p-4">
@@ -261,7 +308,7 @@ export default function NegociosPage() {
               <div className="p-12 text-center">
                 <Briefcase size={40} className="mx-auto text-slate-300 mb-3" />
                 <p className="text-slate-500 font-medium">Nenhum negócio cadastrado.</p>
-                <button onClick={openModal} className="mt-4 text-unifique-primary text-sm font-bold hover:underline">
+                <button onClick={openCreate} className="mt-4 text-unifique-primary text-sm font-bold hover:underline">
                   Criar primeiro negócio
                 </button>
               </div>
@@ -270,7 +317,7 @@ export default function NegociosPage() {
         )}
       </div>
 
-      {/* Modal Novo Negócio */}
+      {/* Modal Negócio */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,24,64,0.45)', backdropFilter: 'blur(4px)' }}>
           <motion.div
@@ -278,128 +325,170 @@ export default function NegociosPage() {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
           >
-            <div className="flex items-center justify-between p-6 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900">Novo Negócio</h2>
-              <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-all">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <label className="block">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome do Negócio *</span>
-                <input
-                  type="text"
-                  value={form.nome}
-                  onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
-                  placeholder="Ex: Expansão de Rede — Acme"
-                  className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                  autoFocus
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Empresa *</span>
-                {empresas.length > 0 ? (
-                  <select
-                    value={form.empresa_id}
-                    onChange={e => setForm(f => ({ ...f, empresa_id: e.target.value }))}
-                    className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
-                  >
-                    <option value="">Selecione...</option>
-                    {empresas.map(e => (
-                      <option key={e.id} value={e.id}>{e.nome}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <p className="mt-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
-                    Nenhuma empresa cadastrada. <a href="/empresas" className="font-bold underline">Cadastre uma empresa primeiro.</a>
-                  </p>
-                )}
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Valor (R$)</span>
-                  <input
-                    type="number"
-                    value={form.valor}
-                    onChange={e => setForm(f => ({ ...f, valor: e.target.value }))}
-                    placeholder="0"
-                    className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Probabilidade (%)</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={form.probabilidade}
-                    onChange={e => setForm(f => ({ ...f, probabilidade: e.target.value }))}
-                    className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                  />
-                </label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fase</span>
-                  <select
-                    value={form.fase}
-                    onChange={e => setForm(f => ({ ...f, fase: e.target.value as any }))}
-                    className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
-                  >
-                    {FASES.map(f => <option key={f.id}>{f.id}</option>)}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Curva</span>
-                  <select
-                    value={form.curva}
-                    onChange={e => setForm(f => ({ ...f, curva: e.target.value as any }))}
-                    className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
-                  >
-                    <option value="A">A — Alta prioridade</option>
-                    <option value="B">B — Média prioridade</option>
-                    <option value="C">C — Baixa prioridade</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Previsão de Fechamento</span>
-                <input
-                  type="date"
-                  value={form.prev_fechamento}
-                  onChange={e => setForm(f => ({ ...f, prev_fechamento: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                />
-              </label>
-
-              {erro && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">
-                  {erro}
+            {confirmDelete ? (
+              <>
+                <div className="p-6 text-center">
+                  <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertTriangle size={28} className="text-red-500" />
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900 mb-2">Excluir Negócio?</h2>
+                  <p className="text-sm text-slate-500">Esta ação não pode ser desfeita.</p>
                 </div>
-              )}
-            </div>
+                <div className="flex items-center justify-center gap-3 p-6 border-t border-slate-100">
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex items-center gap-2 px-5 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-600 disabled:opacity-60 transition-all"
+                  >
+                    {deleting && <Loader2 size={14} className="animate-spin" />}
+                    {deleting ? 'Excluindo...' : 'Sim, Excluir'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between p-6 border-b border-slate-100">
+                  <h2 className="text-lg font-bold text-slate-900">{editingId ? 'Editar Negócio' : 'Novo Negócio'}</h2>
+                  <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-all">
+                    <X size={18} />
+                  </button>
+                </div>
 
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-100">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || empresas.length === 0}
-                className="flex items-center gap-2 px-5 py-2 bg-unifique-primary text-white text-sm font-bold rounded-lg hover:bg-unifique-primary/90 disabled:opacity-60 transition-all"
-              >
-                {saving && <Loader2 size={14} className="animate-spin" />}
-                {saving ? 'Salvando...' : 'Criar Negócio'}
-              </button>
-            </div>
+                <div className="p-6 space-y-4">
+                  <label className="block">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome do Negócio *</span>
+                    <input
+                      type="text"
+                      value={form.nome}
+                      onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
+                      placeholder="Ex: Expansão de Rede — Acme"
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
+                      autoFocus
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Empresa *</span>
+                    {empresas.length > 0 ? (
+                      <select
+                        value={form.empresa_id}
+                        onChange={e => setForm(f => ({ ...f, empresa_id: e.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
+                      >
+                        <option value="">Selecione...</option>
+                        {empresas.map(e => (
+                          <option key={e.id} value={e.id}>{e.nome}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="mt-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                        Nenhuma empresa cadastrada. <a href="/empresas" className="font-bold underline">Cadastre uma empresa primeiro.</a>
+                      </p>
+                    )}
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Valor (R$)</span>
+                      <input
+                        type="number"
+                        value={form.valor}
+                        onChange={e => setForm(f => ({ ...f, valor: e.target.value }))}
+                        placeholder="0"
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Probabilidade (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={form.probabilidade}
+                        onChange={e => setForm(f => ({ ...f, probabilidade: e.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fase</span>
+                      <select
+                        value={form.fase}
+                        onChange={e => setForm(f => ({ ...f, fase: e.target.value as any }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
+                      >
+                        {FASES.map(f => <option key={f.id}>{f.id}</option>)}
+                        <option value="Contrato">Contrato</option>
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Curva</span>
+                      <select
+                        value={form.curva}
+                        onChange={e => setForm(f => ({ ...f, curva: e.target.value as any }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
+                      >
+                        <option value="A">A — Alta prioridade</option>
+                        <option value="B">B — Média prioridade</option>
+                        <option value="C">C — Baixa prioridade</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="block">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Previsão de Fechamento</span>
+                    <input
+                      type="date"
+                      value={form.prev_fechamento}
+                      onChange={e => setForm(f => ({ ...f, prev_fechamento: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
+                    />
+                  </label>
+
+                  {erro && (
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">
+                      {erro}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between p-6 border-t border-slate-100">
+                  {editingId ? (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    >
+                      <Trash2 size={14} />
+                      Excluir
+                    </button>
+                  ) : <div />}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowModal(false)}
+                      className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving || empresas.length === 0}
+                      className="flex items-center gap-2 px-5 py-2 bg-unifique-primary text-white text-sm font-bold rounded-lg hover:bg-unifique-primary/90 disabled:opacity-60 transition-all"
+                    >
+                      {saving && <Loader2 size={14} className="animate-spin" />}
+                      {saving ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Criar Negócio'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </motion.div>
         </div>
       )}

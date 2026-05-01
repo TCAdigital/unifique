@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { supabase } from '@/lib/supabase';
 import { Tarefa } from '@/types';
@@ -19,6 +19,9 @@ import {
   Loader2,
   Mail,
   Briefcase,
+  Edit3,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
@@ -45,18 +48,34 @@ const BLANK_FORM = {
   tipo: 'Call' as Tarefa['tipo'],
   prazo: new Date().toISOString().split('T')[0],
   prioridade: 'Média' as Tarefa['prioridade'],
+  status: 'Pendente' as Tarefa['status'],
 };
+
+function tarefaToForm(t: Tarefa) {
+  return {
+    titulo: t.titulo,
+    tipo: t.tipo,
+    prazo: t.prazo ? t.prazo.split('T')[0] : '',
+    prioridade: t.prioridade,
+    status: t.status,
+  };
+}
 
 export default function AtividadesPage() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'Pendente' | 'Concluída' | 'Todas'>('Todas');
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [menuId, setMenuId] = useState<string | null>(null);
   const [form, setForm] = useState(BLANK_FORM);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [erro, setErro] = useState('');
   const { user } = useAuth();
   const [completing, setCompleting] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   async function fetchTarefas() {
     let query = supabase.from('tarefas').select('*').order('prazo', { ascending: true });
@@ -71,6 +90,17 @@ export default function AtividadesPage() {
     fetchTarefas();
   }, [filter]);
 
+  useEffect(() => {
+    if (!menuId) return;
+    function close(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuId(null);
+      }
+    }
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [menuId]);
+
   async function handleComplete(tarefa: Tarefa) {
     if (tarefa.status === 'Concluída') return;
     setCompleting(tarefa.id);
@@ -79,8 +109,18 @@ export default function AtividadesPage() {
     setTarefas(prev => prev.map(t => t.id === tarefa.id ? { ...t, status: 'Concluída' } : t));
   }
 
-  function openModal() {
+  function openCreate() {
+    setEditingId(null);
+    setConfirmDelete(false);
     setForm(BLANK_FORM);
+    setErro('');
+    setShowModal(true);
+  }
+
+  function openEdit(tarefa: Tarefa) {
+    setEditingId(tarefa.id);
+    setConfirmDelete(false);
+    setForm(tarefaToForm(tarefa));
     setErro('');
     setShowModal(true);
   }
@@ -91,13 +131,20 @@ export default function AtividadesPage() {
     setSaving(true);
     setErro('');
 
-    const { error } = await supabase.from('tarefas').insert([{
+    const payload = {
       titulo: form.titulo.trim(),
       tipo: form.tipo,
       prazo: form.prazo,
       prioridade: form.prioridade,
-      status: 'Pendente',
-    }]);
+      status: editingId ? form.status : 'Pendente' as Tarefa['status'],
+    };
+
+    let error;
+    if (editingId) {
+      ({ error } = await supabase.from('tarefas').update(payload).eq('id', editingId));
+    } else {
+      ({ error } = await supabase.from('tarefas').insert([payload]));
+    }
 
     setSaving(false);
     if (error) { setErro('Erro ao salvar: ' + error.message); return; }
@@ -105,6 +152,15 @@ export default function AtividadesPage() {
     setShowModal(false);
     setLoading(true);
     fetchTarefas();
+  }
+
+  async function handleDelete() {
+    if (!editingId) return;
+    setDeleting(true);
+    await supabase.from('tarefas').delete().eq('id', editingId);
+    setDeleting(false);
+    setShowModal(false);
+    setTarefas(prev => prev.filter(t => t.id !== editingId));
   }
 
   return (
@@ -117,7 +173,7 @@ export default function AtividadesPage() {
             <p className="text-sm text-slate-500">Gestão de tarefas e follow-ups comerciais.</p>
           </div>
           <button
-            onClick={openModal}
+            onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2 bg-unifique-primary text-white rounded-xl font-bold shadow-lg shadow-unifique-primary/20 hover:scale-[1.02] transition-all"
           >
             <Plus size={18} />
@@ -192,7 +248,7 @@ export default function AtividadesPage() {
                       <config.icon size={20} />
                     </div>
 
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(tarefa)}>
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className={cn("text-sm font-bold truncate text-slate-900", tarefa.status === 'Concluída' && "line-through text-slate-400")}>
                           {tarefa.titulo}
@@ -219,13 +275,43 @@ export default function AtividadesPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div
+                      className="flex items-center gap-2 relative"
+                      ref={menuId === tarefa.id ? menuRef : undefined}
+                    >
                       <div className="hidden sm:flex -space-x-2">
                         <div className="w-7 h-7 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-600">TA</div>
                       </div>
-                      <button className="p-2 text-slate-400 hover:text-unifique-primary transition-all">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setMenuId(menuId === tarefa.id ? null : tarefa.id); }}
+                        className="p-2 text-slate-400 hover:text-unifique-primary transition-all"
+                      >
                         <MoreHorizontal size={18} />
                       </button>
+                      {menuId === tarefa.id && (
+                        <div className="absolute right-0 top-10 z-20 w-36 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setMenuId(null); openEdit(tarefa); }}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all"
+                          >
+                            <Edit3 size={14} />
+                            Editar
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuId(null);
+                              setEditingId(tarefa.id);
+                              setConfirmDelete(true);
+                              setShowModal(true);
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-red-500 hover:bg-red-50 transition-all"
+                          >
+                            <Trash2 size={14} />
+                            Excluir
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 );
@@ -238,7 +324,7 @@ export default function AtividadesPage() {
               </div>
               <h3 className="font-bold text-slate-900">Tudo em dia!</h3>
               <p className="text-sm text-slate-500 mt-1">Não há tarefas para este filtro.</p>
-              <button onClick={openModal} className="mt-4 text-unifique-primary text-sm font-bold hover:underline">
+              <button onClick={openCreate} className="mt-4 text-unifique-primary text-sm font-bold hover:underline">
                 Criar nova tarefa
               </button>
             </div>
@@ -246,7 +332,7 @@ export default function AtividadesPage() {
         </div>
       </div>
 
-      {/* Modal Nova Tarefa */}
+      {/* Modal Tarefa */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,24,64,0.45)', backdropFilter: 'blur(4px)' }}>
           <motion.div
@@ -254,82 +340,140 @@ export default function AtividadesPage() {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
           >
-            <div className="flex items-center justify-between p-6 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900">Nova Tarefa</h2>
-              <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-all">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <label className="block">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Título *</span>
-                <input
-                  type="text"
-                  value={form.titulo}
-                  onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
-                  placeholder="Ex: Ligar para cliente X sobre proposta"
-                  className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                  autoFocus
-                />
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo</span>
-                  <select
-                    value={form.tipo}
-                    onChange={e => setForm(f => ({ ...f, tipo: e.target.value as any }))}
-                    className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
-                  >
-                    {Object.keys(TIPOS).map(t => <option key={t}>{t}</option>)}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Prioridade</span>
-                  <select
-                    value={form.prioridade}
-                    onChange={e => setForm(f => ({ ...f, prioridade: e.target.value as any }))}
-                    className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
-                  >
-                    {Object.keys(PRIORIDADES).map(p => <option key={p}>{p}</option>)}
-                  </select>
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Prazo *</span>
-                <input
-                  type="date"
-                  value={form.prazo}
-                  onChange={e => setForm(f => ({ ...f, prazo: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                />
-              </label>
-
-              {erro && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">
-                  {erro}
+            {confirmDelete ? (
+              <>
+                <div className="p-6 text-center">
+                  <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertTriangle size={28} className="text-red-500" />
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900 mb-2">Excluir Tarefa?</h2>
+                  <p className="text-sm text-slate-500">Esta ação não pode ser desfeita.</p>
                 </div>
-              )}
-            </div>
+                <div className="flex items-center justify-center gap-3 p-6 border-t border-slate-100">
+                  <button
+                    onClick={() => { setShowModal(false); setConfirmDelete(false); }}
+                    className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex items-center gap-2 px-5 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-600 disabled:opacity-60 transition-all"
+                  >
+                    {deleting && <Loader2 size={14} className="animate-spin" />}
+                    {deleting ? 'Excluindo...' : 'Sim, Excluir'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between p-6 border-b border-slate-100">
+                  <h2 className="text-lg font-bold text-slate-900">{editingId ? 'Editar Tarefa' : 'Nova Tarefa'}</h2>
+                  <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-all">
+                    <X size={18} />
+                  </button>
+                </div>
 
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-100">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center gap-2 px-5 py-2 bg-unifique-primary text-white text-sm font-bold rounded-lg hover:bg-unifique-primary/90 disabled:opacity-60 transition-all"
-              >
-                {saving && <Loader2 size={14} className="animate-spin" />}
-                {saving ? 'Salvando...' : 'Criar Tarefa'}
-              </button>
-            </div>
+                <div className="p-6 space-y-4">
+                  <label className="block">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Título *</span>
+                    <input
+                      type="text"
+                      value={form.titulo}
+                      onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
+                      placeholder="Ex: Ligar para cliente X sobre proposta"
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
+                      autoFocus
+                    />
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo</span>
+                      <select
+                        value={form.tipo}
+                        onChange={e => setForm(f => ({ ...f, tipo: e.target.value as any }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
+                      >
+                        {Object.keys(TIPOS).map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Prioridade</span>
+                      <select
+                        value={form.prioridade}
+                        onChange={e => setForm(f => ({ ...f, prioridade: e.target.value as any }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
+                      >
+                        {Object.keys(PRIORIDADES).map(p => <option key={p}>{p}</option>)}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Prazo *</span>
+                      <input
+                        type="date"
+                        value={form.prazo}
+                        onChange={e => setForm(f => ({ ...f, prazo: e.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
+                      />
+                    </label>
+                    {editingId && (
+                      <label className="block">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status</span>
+                        <select
+                          value={form.status}
+                          onChange={e => setForm(f => ({ ...f, status: e.target.value as any }))}
+                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
+                        >
+                          <option value="Pendente">Pendente</option>
+                          <option value="Concluída">Concluída</option>
+                          <option value="Vencida">Vencida</option>
+                          <option value="Futura">Futura</option>
+                        </select>
+                      </label>
+                    )}
+                  </div>
+
+                  {erro && (
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">
+                      {erro}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between p-6 border-t border-slate-100">
+                  {editingId ? (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    >
+                      <Trash2 size={14} />
+                      Excluir
+                    </button>
+                  ) : <div />}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowModal(false)}
+                      className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex items-center gap-2 px-5 py-2 bg-unifique-primary text-white text-sm font-bold rounded-lg hover:bg-unifique-primary/90 disabled:opacity-60 transition-all"
+                    >
+                      {saving && <Loader2 size={14} className="animate-spin" />}
+                      {saving ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Criar Tarefa'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </motion.div>
         </div>
       )}
