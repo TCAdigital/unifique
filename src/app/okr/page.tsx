@@ -17,10 +17,13 @@ import {
   Sparkles,
   AlertCircle,
   CheckCircle2,
+  Pencil,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const ANO = 2026;
+const ANO = new Date().getFullYear();
 const METAS = { eventos: 8, leads: 320, mqls: 96, sqls: 15 };
 
 type Aba = "painel" | "lancar" | "historico" | "cac" | "ia";
@@ -60,6 +63,9 @@ export default function OkrPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [analiseIA, setAnaliseIA] = useState("");
   const [loadingIA, setLoadingIA] = useState(false);
   const [erroIA, setErroIA] = useState("");
@@ -79,13 +85,31 @@ export default function OkrPage() {
     setLoading(false);
   }
 
+  function openEdit(l: OkrLancamento) {
+    setEditingId(l.id);
+    setForm({
+      mes_idx: l.mes_idx,
+      eventos: String(l.eventos),
+      leads: String(l.leads),
+      mqls: String(l.mqls),
+      sqls: String(l.sqls),
+      presencial: String(l.presencial),
+      online: String(l.online),
+      custo: String(l.custo),
+      clientes: String(l.clientes),
+      ltv: String(l.ltv),
+    });
+    setAba("lancar");
+  }
+
   async function handleSalvar() {
-    const mesExiste = lancamentos.find((l) => l.mes_idx === Number(form.mes_idx));
-    if (mesExiste) return;
+    if (!editingId) {
+      const mesExiste = lancamentos.find((l) => l.mes_idx === Number(form.mes_idx));
+      if (mesExiste) return;
+    }
     setSaving(true);
-    await supabase.from("okr_lancamentos").insert({
-      mes_idx: Number(form.mes_idx),
-      ano: ANO,
+
+    const payload = {
       eventos: Number(form.eventos) || 0,
       leads: Number(form.leads) || 0,
       mqls: Number(form.mqls) || 0,
@@ -96,11 +120,27 @@ export default function OkrPage() {
       clientes: Number(form.clientes) || 0,
       ltv: Number(form.ltv) || 0,
       saved: true,
-    });
+    };
+
+    if (editingId) {
+      await supabase.from("okr_lancamentos").update(payload).eq("id", editingId);
+      setEditingId(null);
+    } else {
+      await supabase.from("okr_lancamentos").insert({ ...payload, mes_idx: Number(form.mes_idx), ano: ANO });
+    }
+
     setForm(FORM_VAZIO);
     setSaving(false);
     loadData();
     setAba("historico");
+  }
+
+  async function handleDelete(id: string) {
+    setDeleting(true);
+    await supabase.from("okr_lancamentos").delete().eq("id", id);
+    setDeleting(false);
+    setConfirmDeleteId(null);
+    loadData();
   }
 
   async function handleAnaliseIA() {
@@ -291,7 +331,7 @@ export default function OkrPage() {
         {/* LANÇAR */}
         {aba === "lancar" && (
           <div className="glass-card p-6 max-w-2xl">
-            <h2 className="font-bold text-lg mb-6">Lançar dados do mês</h2>
+            <h2 className="font-bold text-lg mb-6">{editingId ? `Editar — ${MESES[form.mes_idx]}/${ANO}` : 'Lançar dados do mês'}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">Mês *</label>
@@ -301,8 +341,8 @@ export default function OkrPage() {
                   className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 rounded-lg text-sm bg-white dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-unifique-primary/30"
                 >
                   {MESES.map((m, i) => (
-                    <option key={m} value={i} disabled={mesesLancados.has(i)}>
-                      {m}/{ANO} {mesesLancados.has(i) ? "(já lançado)" : ""}
+                    <option key={m} value={i} disabled={!editingId && mesesLancados.has(i)}>
+                      {m}/{ANO} {!editingId && mesesLancados.has(i) ? "(já lançado)" : ""}
                     </option>
                   ))}
                 </select>
@@ -333,13 +373,21 @@ export default function OkrPage() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleSalvar}
-                disabled={saving || mesesLancados.has(Number(form.mes_idx))}
+                disabled={saving || (!editingId && mesesLancados.has(Number(form.mes_idx)))}
                 className="flex items-center gap-2 px-6 py-2.5 bg-unifique-primary text-white rounded-lg text-sm font-bold hover:bg-unifique-primary/90 disabled:opacity-60 transition-all"
               >
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                Salvar Lançamento
+                {editingId ? 'Salvar Alterações' : 'Salvar Lançamento'}
               </button>
-              {mesesLancados.has(Number(form.mes_idx)) && (
+              {editingId && (
+                <button
+                  onClick={() => { setEditingId(null); setForm(FORM_VAZIO); }}
+                  className="px-4 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-all"
+                >
+                  Cancelar edição
+                </button>
+              )}
+              {!editingId && mesesLancados.has(Number(form.mes_idx)) && (
                 <p className="text-xs text-amber-600 flex items-center gap-1 self-center">
                   <AlertCircle size={13} /> Este mês já foi lançado
                 </p>
@@ -362,14 +410,31 @@ export default function OkrPage() {
                 </button>
               </div>
             ) : (
+              <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {lancamentos.map((l) => (
                   <div key={l.id} className="glass-card p-5">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-bold text-sm">{MESES[l.mes_idx]}/{ANO}</h3>
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
-                        <CheckCircle2 size={10} /> Lançado
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
+                          <CheckCircle2 size={10} /> Lançado
+                        </span>
+                        <button
+                          onClick={() => openEdit(l)}
+                          className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-unifique-primary transition-all"
+                          title="Editar"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(l.id)}
+                          className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       {[
@@ -389,6 +454,36 @@ export default function OkrPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Delete confirmation overlay */}
+              {confirmDeleteId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,24,64,0.45)', backdropFilter: 'blur(4px)' }}>
+                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+                    <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <AlertTriangle size={28} className="text-red-500" />
+                    </div>
+                    <h2 className="text-lg font-bold text-slate-900 mb-2">Excluir lançamento?</h2>
+                    <p className="text-sm text-slate-500 mb-6">Esta ação não pode ser desfeita.</p>
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => handleDelete(confirmDeleteId)}
+                        disabled={deleting}
+                        className="flex items-center gap-2 px-5 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-600 disabled:opacity-60 transition-all"
+                      >
+                        {deleting && <Loader2 size={14} className="animate-spin" />}
+                        {deleting ? 'Excluindo...' : 'Sim, Excluir'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         )}

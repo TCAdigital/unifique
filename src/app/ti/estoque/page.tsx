@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
 import { Package, Search, Plus, AlertTriangle, ArrowRightLeft, X, Loader2 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -34,6 +35,7 @@ const BLANK_FORM = {
 };
 
 export default function TiEstoquePage() {
+  const router = useRouter();
   const [estoque, setEstoque] = useState<ItemEstoque[]>(ESTOQUE_INITIAL);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -81,7 +83,10 @@ export default function TiEstoquePage() {
             <p className="text-sm text-slate-500">Gestão de hardware, software e infraestrutura.</p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all">
+            <button
+              onClick={() => router.push('/ti/movs')}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all"
+            >
               <ArrowRightLeft size={18} />
               Movimentação
             </button>

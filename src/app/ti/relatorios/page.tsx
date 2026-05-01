@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Shell } from "@/components/layout/Shell";
+import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn } from "@/lib/utils";
-import { FileBarChart, TrendingUp, Package, DollarSign, Users, Download } from "lucide-react";
+import { FileBarChart, TrendingUp, Package, DollarSign, Download } from "lucide-react";
 
 const DADOS_MENSAIS = [
   { mes: "Jan", receita: 380000, custo: 210000, lucro: 170000 },
@@ -23,23 +25,37 @@ const CORES_PRODUTO = ["#0057B8", "#00C8F0", "#1D9E75", "#D97706"];
 const totalReceita = DADOS_MENSAIS.reduce((s, m) => s + m.receita, 0);
 const totalLucro = DADOS_MENSAIS.reduce((s, m) => s + m.lucro, 0);
 const margemMedia = Math.round((totalLucro / totalReceita) * 100);
-
 const maxReceita = Math.max(...DADOS_MENSAIS.map((d) => d.receita));
 
 export default function RelatoriosPage() {
+  const [projetosAtivos, setProjetosAtivos] = useState<number | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("negocios")
+      .select("id", { count: "exact", head: true })
+      .in("fase", ["Fechamento", "Contrato"])
+      .then(({ count }) => {
+        if (count !== null) setProjetosAtivos(count);
+      });
+  }, []);
+
   return (
     <Shell>
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white font-outfit">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 font-outfit">
               Relatórios TI
             </h1>
             <p className="text-slate-500 mt-1">
-              Análise financeira consolidada — Backoffice de Tecnologia · Acumulado 2026
+              Análise financeira consolidada — Backoffice de Tecnologia · Acumulado {new Date().getFullYear()}
             </p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-unifique-primary text-white rounded-xl text-sm font-bold hover:scale-[1.02] transition-all shadow-lg shadow-unifique-primary/25">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-4 py-2 bg-unifique-primary text-white rounded-xl text-sm font-bold hover:scale-[1.02] transition-all shadow-lg shadow-unifique-primary/25"
+          >
             <Download size={16} /> Exportar PDF
           </button>
         </div>
@@ -48,9 +64,9 @@ export default function RelatoriosPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
             { label: "Receita Acumulada", value: formatCurrency(totalReceita), icon: TrendingUp, color: "text-unifique-primary", bg: "bg-unifique-primary/10" },
-            { label: "Lucro Acumulado", value: formatCurrency(totalLucro), icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-            { label: "Margem Média", value: `${margemMedia}%`, icon: FileBarChart, color: margemMedia >= 40 ? "text-emerald-600" : "text-amber-600", bg: "bg-slate-50 dark:bg-slate-800" },
-            { label: "Projetos Ativos", value: "12", icon: Package, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
+            { label: "Lucro Acumulado", value: formatCurrency(totalLucro), icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50" },
+            { label: "Margem Média", value: `${margemMedia}%`, icon: FileBarChart, color: margemMedia >= 40 ? "text-emerald-600" : "text-amber-600", bg: "bg-slate-50" },
+            { label: "Projetos Ativos", value: projetosAtivos !== null ? String(projetosAtivos) : "—", icon: Package, color: "text-blue-600", bg: "bg-blue-50" },
           ].map((k) => (
             <div key={k.label} className="glass-card p-5 flex items-center gap-4">
               <div className={cn("p-3 rounded-xl flex-shrink-0", k.bg)}>
@@ -66,8 +82,8 @@ export default function RelatoriosPage() {
 
         {/* Bar Chart */}
         <div className="glass-card p-6">
-          <h3 className="font-bold text-sm mb-6 text-slate-700 dark:text-slate-200">
-            Receita vs Custo vs Lucro — Mensal 2026
+          <h3 className="font-bold text-sm mb-6 text-slate-700">
+            Receita vs Custo vs Lucro — Mensal {new Date().getFullYear()}
           </h3>
           <div className="flex items-end gap-6 h-52">
             {DADOS_MENSAIS.map((d) => {
@@ -78,7 +94,7 @@ export default function RelatoriosPage() {
                 <div key={d.mes} className="flex-1 flex flex-col items-center gap-1">
                   <div className="w-full flex items-end gap-1 h-44">
                     <div className="flex-1 rounded-t-md bg-unifique-primary transition-all hover:brightness-110 cursor-pointer" style={{ height: `${hR}%` }} title={`Receita: ${formatCurrency(d.receita)}`} />
-                    <div className="flex-1 rounded-t-md bg-red-400 dark:bg-red-500/70 transition-all hover:brightness-110 cursor-pointer" style={{ height: `${hC}%` }} title={`Custo: ${formatCurrency(d.custo)}`} />
+                    <div className="flex-1 rounded-t-md bg-red-400 transition-all hover:brightness-110 cursor-pointer" style={{ height: `${hC}%` }} title={`Custo: ${formatCurrency(d.custo)}`} />
                     <div className="flex-1 rounded-t-md bg-unifique-success transition-all hover:brightness-110 cursor-pointer" style={{ height: `${hL}%` }} title={`Lucro: ${formatCurrency(d.lucro)}`} />
                   </div>
                   <p className="text-xs font-bold text-slate-500">{d.mes}</p>
@@ -102,7 +118,7 @@ export default function RelatoriosPage() {
 
         {/* Mix de produtos */}
         <div className="glass-card p-6">
-          <h3 className="font-bold text-sm mb-6 text-slate-700 dark:text-slate-200">
+          <h3 className="font-bold text-sm mb-6 text-slate-700">
             Mix de Produtos — Participação na Receita
           </h3>
           <div className="space-y-4">
@@ -111,14 +127,14 @@ export default function RelatoriosPage() {
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: CORES_PRODUTO[i] }} />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{p.nome}</span>
+                    <span className="text-sm font-medium text-slate-700">{p.nome}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{formatCurrency(p.receita)}</span>
+                    <span className="text-xs font-bold text-slate-700">{formatCurrency(p.receita)}</span>
                     <span className="text-[10px] text-slate-400 ml-2">Margem: {p.margem}%</span>
                   </div>
                 </div>
-                <div className="w-full h-2.5 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{ width: `${p.participacao}%`, backgroundColor: CORES_PRODUTO[i] }}
@@ -132,13 +148,13 @@ export default function RelatoriosPage() {
 
         {/* Monthly detail table */}
         <div className="glass-card overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5">
+          <div className="px-6 py-4 border-b border-slate-100">
             <h3 className="font-bold text-sm">Detalhamento Mensal</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-white/5">
+                <tr className="border-b border-slate-100">
                   {["Mês", "Receita Bruta", "Custo Total", "Lucro Líquido", "Margem"].map((h) => (
                     <th key={h} className="px-6 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                       {h}
@@ -146,19 +162,19 @@ export default function RelatoriosPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {DADOS_MENSAIS.map((d) => {
                   const margem = Math.round((d.lucro / d.receita) * 100);
                   return (
-                    <tr key={d.mes} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all">
-                      <td className="px-6 py-3 font-bold text-slate-700 dark:text-slate-200">{d.mes}/2026</td>
+                    <tr key={d.mes} className="hover:bg-slate-50 transition-all">
+                      <td className="px-6 py-3 font-bold text-slate-700">{d.mes}/{new Date().getFullYear()}</td>
                       <td className="px-6 py-3 font-medium text-unifique-primary">{formatCurrency(d.receita)}</td>
                       <td className="px-6 py-3 font-medium text-red-500">{formatCurrency(d.custo)}</td>
                       <td className="px-6 py-3 font-bold text-emerald-600">{formatCurrency(d.lucro)}</td>
                       <td className="px-6 py-3">
                         <span className={cn(
                           "font-bold text-xs px-2 py-1 rounded",
-                          margem >= 40 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
+                          margem >= 40 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
                         )}>
                           {margem}%
                         </span>
@@ -166,13 +182,13 @@ export default function RelatoriosPage() {
                     </tr>
                   );
                 })}
-                <tr className="bg-slate-50 dark:bg-white/5 font-bold">
-                  <td className="px-6 py-3 text-slate-700 dark:text-slate-200">TOTAL</td>
+                <tr className="bg-slate-50 font-bold">
+                  <td className="px-6 py-3 text-slate-700">TOTAL</td>
                   <td className="px-6 py-3 text-unifique-primary">{formatCurrency(totalReceita)}</td>
                   <td className="px-6 py-3 text-red-500">{formatCurrency(DADOS_MENSAIS.reduce((s, m) => s + m.custo, 0))}</td>
                   <td className="px-6 py-3 text-emerald-600">{formatCurrency(totalLucro)}</td>
                   <td className="px-6 py-3">
-                    <span className="font-bold text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                    <span className="font-bold text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700">
                       {margemMedia}%
                     </span>
                   </td>
