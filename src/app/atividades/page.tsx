@@ -97,7 +97,6 @@ export default function AtividadesPage() {
       prazo: form.prazo,
       prioridade: form.prioridade,
       status: 'Pendente',
-      responsavel_id: user?.id ?? null,
     }]);
 
     setSaving(false);

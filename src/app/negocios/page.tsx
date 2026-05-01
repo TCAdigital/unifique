@@ -95,7 +95,6 @@ export default function NegociosPage() {
       investimento: parseFloat(form.investimento) || 0,
       leads: parseInt(form.leads) || 0,
       prev_fechamento: form.prev_fechamento || null,
-      responsavel_id: user?.id ?? null,
     }]);
 
     setSaving(false);

@@ -27,7 +27,6 @@ export interface Negocio {
   fase: 'Prospecção' | 'Qualificação' | 'Proposta' | 'Negociação' | 'Fechamento' | 'Contrato';
   funil?: string;
   probabilidade: number;
-  responsavel_id: string;
   investimento: number;
   leads: number;
   prev_fechamento?: string;
@@ -45,7 +44,6 @@ export interface Tarefa {
   negocio_id?: string;
   tipo: 'Call' | 'Reunião' | 'E-mail' | 'WhatsApp' | 'Proposta' | 'Outro';
   prazo: string;
-  responsavel_id: string;
   status: 'Pendente' | 'Concluída' | 'Vencida' | 'Futura';
   prioridade: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
   created_at: string;
