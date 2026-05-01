@@ -30,6 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const BLANK_FORM = {
   nome: '',
+  cnpj: '',
   segmento: 'Tecnologia',
   setor: 'Privado' as const,
   porte: 'Médio' as const,
@@ -79,25 +80,30 @@ export default function EmpresasPage() {
     setSaving(true);
     setErro('');
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       nome: form.nome.trim(),
       segmento: form.segmento,
       setor: form.setor,
-      porte: form.porte,
-      status: form.status,
       faturamento: parseFloat(form.faturamento) || 0,
       colaboradores: parseInt(form.colaboradores) || 0,
-      cidade: form.cidade.trim() || null,
-      contato: form.contato.trim() || null,
-      email_contato: form.email_contato.trim() || null,
-      tel: form.tel.trim() || null,
     };
+    if (form.cnpj.trim()) payload.cnpj = form.cnpj.trim();
+    if (form.porte) payload.porte = form.porte;
+    if (form.status) payload.status = form.status;
+    if (form.cidade.trim()) payload.cidade = form.cidade.trim();
+    if (form.contato.trim()) payload.contato = form.contato.trim();
+    if (form.email_contato.trim()) payload.email_contato = form.email_contato.trim();
+    if (form.tel.trim()) payload.tel = form.tel.trim();
 
     const { error } = await supabase.from('empresas').insert([payload]);
     setSaving(false);
 
     if (error) {
-      setErro('Erro ao salvar: ' + error.message);
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('fetch')) {
+        setErro('Erro de rede: verifique a conexão com o Supabase ou as políticas RLS (INSERT não permitido).');
+      } else {
+        setErro('Erro ao salvar: ' + error.message);
+      }
       return;
     }
 
@@ -184,7 +190,10 @@ export default function EmpresasPage() {
                           </div>
                           <div>
                             <p className="font-bold text-sm text-slate-900">{empresa.nome}</p>
-                            <p className="text-[10px] text-slate-500">{empresa.setor}{empresa.cidade ? ` · ${empresa.cidade}` : ''}</p>
+                            <p className="text-[10px] text-slate-500">
+                              {empresa.cnpj ? `CNPJ ${empresa.cnpj}` : empresa.setor}
+                              {empresa.cidade ? ` · ${empresa.cidade}` : ''}
+                            </p>
                           </div>
                         </div>
                       </td>
@@ -246,16 +255,29 @@ export default function EmpresasPage() {
 
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 gap-4">
-                <label className="block">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome da Empresa *</span>
-                  <input
-                    type="text"
-                    value={form.nome}
-                    onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
-                    placeholder="Ex: Acme Tecnologia LTDA"
-                    className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                  />
-                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome da Empresa *</span>
+                    <input
+                      type="text"
+                      value={form.nome}
+                      onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
+                      placeholder="Ex: Acme Tecnologia LTDA"
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
+                      autoFocus
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">CNPJ</span>
+                    <input
+                      type="text"
+                      value={form.cnpj}
+                      onChange={e => setForm(f => ({ ...f, cnpj: e.target.value }))}
+                      placeholder="00.000.000/0001-00"
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
+                    />
+                  </label>
+                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <label className="block">

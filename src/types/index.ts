@@ -1,6 +1,7 @@
 export interface Empresa {
   id: string;
   nome: string;
+  cnpj?: string;
   segmento: string;
   porte?: 'Pequeno' | 'Médio' | 'Grande';
   cidade?: string;
