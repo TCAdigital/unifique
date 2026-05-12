@@ -112,15 +112,14 @@ export default function EmpresasPage() {
     if (form.email_contato.trim()) payload.email_contato = form.email_contato.trim();
     if (form.tel.trim()) payload.tel = form.tel.trim();
 
-    const { error } = editingId
-      ? await supabase.from('empresas').update(payload).eq('id', editingId)
-      : await supabase.from('empresas').insert([payload]);
+    const res = editingId
+      ? await fetch('/api/empresas', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editingId, payload }) })
+      : await fetch('/api/empresas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload }) });
 
+    const json = await res.json();
     setSaving(false);
-    if (error) {
-      setErro(error.message.includes('fetch')
-        ? 'Erro de rede. Verifique as políticas RLS no Supabase.'
-        : 'Erro: ' + error.message);
+    if (!res.ok) {
+      setErro('Erro: ' + (json.error ?? res.statusText));
       return;
     }
     setShowModal(false);
@@ -131,7 +130,7 @@ export default function EmpresasPage() {
   async function handleDelete() {
     if (!editingId) return;
     setDeleting(true);
-    await supabase.from('empresas').delete().eq('id', editingId);
+    await fetch('/api/empresas', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editingId }) });
     setDeleting(false);
     setShowModal(false);
     setEmpresas(prev => prev.filter(e => e.id !== editingId));
