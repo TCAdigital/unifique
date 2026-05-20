@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { Shell } from "@/components/layout/Shell";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn } from "@/lib/utils";
-import type { Orcamento } from "@/types";
+import type { Orcamento, Empresa } from "@/types";
 import {
   Wallet,
   Plus,
@@ -58,6 +58,8 @@ interface FormData {
   gasto: string;
   status: string;
   periodo: string;
+  empresa_id: string;
+  empresa_nome: string;
 }
 
 const EMPTY_FORM: FormData = {
@@ -67,11 +69,14 @@ const EMPTY_FORM: FormData = {
   gasto: "",
   status: "Planejado",
   periodo: PERIODOS[0],
+  empresa_id: "",
+  empresa_nome: "",
 };
 
 export default function OrcamentoPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<Orcamento[]>([]);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -82,6 +87,12 @@ export default function OrcamentoPage() {
     loadData();
   }, [periodoFiltro]);
 
+  useEffect(() => {
+    supabase.from('empresas').select('id, nome').order('nome').then(({ data }) => {
+      if (data) setEmpresas(data as any);
+    });
+  }, []);
+
   async function loadData() {
     setLoading(true);
     const { data } = await supabase
@@ -91,6 +102,11 @@ export default function OrcamentoPage() {
       .order("created_at", { ascending: false });
     setItems((data as Orcamento[]) ?? []);
     setLoading(false);
+  }
+
+  function handleEmpresaChange(empresaId: string) {
+    const emp = empresas.find(e => e.id === empresaId);
+    setForm(f => ({ ...f, empresa_id: empresaId, empresa_nome: emp?.nome ?? '' }));
   }
 
   async function handleSave() {
@@ -104,6 +120,8 @@ export default function OrcamentoPage() {
       orcamento: parseFloat(form.orcamento) || 0,
       gasto: parseFloat(form.gasto) || 0,
       status: form.status,
+      empresa_id: form.empresa_id || null,
+      empresa_nome: form.empresa_nome || null,
     });
     setForm(EMPTY_FORM);
     setShowForm(false);
@@ -203,6 +221,17 @@ export default function OrcamentoPage() {
           <div className="glass-card p-6 border-2 border-unifique-primary/20">
             <h3 className="font-bold text-sm mb-4 text-unifique-primary">Novo Item de Orçamento</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">Empresa</label>
+                <select
+                  value={form.empresa_id}
+                  onChange={(e) => handleEmpresaChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 rounded-lg text-sm bg-white dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-unifique-primary/30"
+                >
+                  <option value="">— Sem empresa vinculada —</option>
+                  {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                </select>
+              </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">Categoria</label>
                 <select
@@ -311,6 +340,9 @@ export default function OrcamentoPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm truncate">{item.descricao}</p>
+                      {item.empresa_nome && (
+                        <p className="text-[11px] text-unifique-primary font-medium truncate">{item.empresa_nome}</p>
+                      )}
                       <div className="w-full h-1.5 bg-slate-100 dark:bg-white/10 rounded-full mt-1.5 max-w-[200px]">
                         <div
                           className={cn("h-full rounded-full", pct > 100 ? "bg-red-500" : "bg-unifique-success")}

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { supabase } from '@/lib/supabase';
 import { Empresa } from '@/types';
+import { NotasSection } from '@/components/NotasSection';
 import {
   Plus, Search, Filter, MoreHorizontal, Building2,
   ArrowUpDown, X, Loader2, Trash2, Pencil,
@@ -27,6 +28,7 @@ const BLANK_FORM = {
   setor: 'Privado' as const, porte: 'Médio' as const,
   status: 'Lead' as const, faturamento: '', colaboradores: '',
   cidade: '', contato: '', email_contato: '', tel: '',
+  consultor_nome: '', especialista_nome: '',
 };
 
 function empresaToForm(e: Empresa) {
@@ -43,11 +45,14 @@ function empresaToForm(e: Empresa) {
     contato: e.contato ?? '',
     email_contato: e.email_contato ?? '',
     tel: e.tel ?? '',
+    consultor_nome: e.consultor_nome ?? '',
+    especialista_nome: e.especialista_nome ?? '',
   };
 }
 
 export default function EmpresasPage() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [usuarios, setUsuarios] = useState<{ id: string; nome: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -65,7 +70,13 @@ export default function EmpresasPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchEmpresas(); }, []);
+  useEffect(() => {
+    fetchEmpresas();
+    supabase.from('usuarios').select('id, nome').eq('ativo', true).order('nome').then(({ data }) => {
+      if (data) setUsuarios(data);
+    });
+  }, []);
+
   useEffect(() => {
     const close = () => setMenuId(null);
     document.addEventListener('click', close);
@@ -111,6 +122,8 @@ export default function EmpresasPage() {
     if (form.contato.trim()) payload.contato = form.contato.trim();
     if (form.email_contato.trim()) payload.email_contato = form.email_contato.trim();
     if (form.tel.trim()) payload.tel = form.tel.trim();
+    payload.consultor_nome = form.consultor_nome || null;
+    payload.especialista_nome = form.especialista_nome || null;
 
     const { error } = editingId
       ? await supabase.from('empresas').update(payload).eq('id', editingId)
@@ -195,6 +208,7 @@ export default function EmpresasPage() {
                             <p className="text-[10px] text-slate-500">
                               {empresa.cnpj ? `CNPJ ${empresa.cnpj}` : empresa.setor}
                               {empresa.cidade ? ` · ${empresa.cidade}` : ''}
+                              {empresa.consultor_nome ? ` · ${empresa.consultor_nome}` : ''}
                             </p>
                           </div>
                         </div>
@@ -246,7 +260,7 @@ export default function EmpresasPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,24,64,0.45)', backdropFilter: 'blur(4px)' }}>
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
 
             {confirmDelete ? (
               <>
@@ -274,6 +288,7 @@ export default function EmpresasPage() {
                   <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X size={18} /></button>
                 </div>
                 <div className="p-6 space-y-4">
+                  {/* Dados principais */}
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block col-span-2 sm:col-span-1">
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome da Empresa *</span>
@@ -337,6 +352,31 @@ export default function EmpresasPage() {
                     <input type="text" value={form.cidade} onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))} placeholder="Ex: Blumenau - SC"
                       className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
                   </label>
+
+                  {/* Responsáveis */}
+                  <div className="border-t border-slate-100 pt-4">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Responsáveis</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Consultor</span>
+                        <select value={form.consultor_nome} onChange={e => setForm(f => ({ ...f, consultor_nome: e.target.value }))}
+                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary bg-white">
+                          <option value="">— Sem atribuição —</option>
+                          {usuarios.map(u => <option key={u.id} value={u.nome}>{u.nome}</option>)}
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Especialista</span>
+                        <select value={form.especialista_nome} onChange={e => setForm(f => ({ ...f, especialista_nome: e.target.value }))}
+                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary bg-white">
+                          <option value="">— Sem atribuição —</option>
+                          {usuarios.map(u => <option key={u.id} value={u.nome}>{u.nome}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Contato Principal */}
                   <div className="border-t border-slate-100 pt-4">
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Contato Principal</p>
                     <div className="space-y-3">
@@ -350,6 +390,10 @@ export default function EmpresasPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Notas */}
+                  <NotasSection entidadeId={editingId} entidadeTipo="empresas" />
+
                   {erro && <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">{erro}</div>}
                 </div>
                 <div className="flex items-center justify-between p-6 border-t border-slate-100">

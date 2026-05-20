@@ -3,7 +3,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { supabase } from '@/lib/supabase';
-import { Tarefa } from '@/types';
+import { Tarefa, Empresa } from '@/types';
+import { NotasSection } from '@/components/NotasSection';
 import {
   Plus,
   CheckCircle2,
@@ -24,7 +25,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
-import { useAuth } from '@/lib/auth';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const PRIORIDADES = {
@@ -49,6 +49,8 @@ const BLANK_FORM = {
   prazo: new Date().toISOString().split('T')[0],
   prioridade: 'Média' as Tarefa['prioridade'],
   status: 'Pendente' as Tarefa['status'],
+  empresa_id: '',
+  empresa_nome: '',
 };
 
 function tarefaToForm(t: Tarefa) {
@@ -58,11 +60,14 @@ function tarefaToForm(t: Tarefa) {
     prazo: t.prazo ? t.prazo.split('T')[0] : '',
     prioridade: t.prioridade,
     status: t.status,
+    empresa_id: t.empresa_id ?? '',
+    empresa_nome: t.empresa_nome ?? '',
   };
 }
 
 export default function AtividadesPage() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'Pendente' | 'Concluída' | 'Todas'>('Todas');
   const [showModal, setShowModal] = useState(false);
@@ -73,7 +78,6 @@ export default function AtividadesPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [erro, setErro] = useState('');
-  const { user } = useAuth();
   const [completing, setCompleting] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -89,6 +93,12 @@ export default function AtividadesPage() {
     setLoading(true);
     fetchTarefas();
   }, [filter]);
+
+  useEffect(() => {
+    supabase.from('empresas').select('id, nome').order('nome').then(({ data }) => {
+      if (data) setEmpresas(data as any);
+    });
+  }, []);
 
   useEffect(() => {
     if (!menuId) return;
@@ -131,13 +141,17 @@ export default function AtividadesPage() {
     setSaving(true);
     setErro('');
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       titulo: form.titulo.trim(),
       tipo: form.tipo,
       prazo: form.prazo,
       prioridade: form.prioridade,
       status: editingId ? form.status : 'Pendente' as Tarefa['status'],
     };
+    if (form.empresa_id) {
+      payload.empresa_id = form.empresa_id;
+      payload.empresa_nome = form.empresa_nome || null;
+    }
 
     let error;
     if (editingId) {
@@ -161,6 +175,11 @@ export default function AtividadesPage() {
     setDeleting(false);
     setShowModal(false);
     setTarefas(prev => prev.filter(t => t.id !== editingId));
+  }
+
+  function handleEmpresaChange(empresaId: string) {
+    const emp = empresas.find(e => e.id === empresaId);
+    setForm(f => ({ ...f, empresa_id: empresaId, empresa_nome: emp?.nome ?? '' }));
   }
 
   return (
@@ -266,6 +285,11 @@ export default function AtividadesPage() {
                           <Clock size={10} />
                           {tarefa.tipo}
                         </span>
+                        {tarefa.empresa_nome && (
+                          <span className="flex items-center gap-1 text-unifique-primary font-bold">
+                            {tarefa.empresa_nome}
+                          </span>
+                        )}
                         {isOverdue && (
                           <span className="flex items-center gap-1 text-red-500 font-bold">
                             <AlertCircle size={10} />
@@ -279,9 +303,6 @@ export default function AtividadesPage() {
                       className="flex items-center gap-2 relative"
                       ref={menuId === tarefa.id ? menuRef : undefined}
                     >
-                      <div className="hidden sm:flex -space-x-2">
-                        <div className="w-7 h-7 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-600">TA</div>
-                      </div>
                       <button
                         onClick={(e) => { e.stopPropagation(); setMenuId(menuId === tarefa.id ? null : tarefa.id); }}
                         className="p-2 text-slate-400 hover:text-unifique-primary transition-all"
@@ -338,7 +359,7 @@ export default function AtividadesPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
           >
             {confirmDelete ? (
               <>
@@ -386,6 +407,20 @@ export default function AtividadesPage() {
                       className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
                       autoFocus
                     />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Empresa</span>
+                    <select
+                      value={form.empresa_id}
+                      onChange={e => handleEmpresaChange(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
+                    >
+                      <option value="">— Sem empresa vinculada —</option>
+                      {empresas.map(e => (
+                        <option key={e.id} value={e.id}>{e.nome}</option>
+                      ))}
+                    </select>
                   </label>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -437,6 +472,9 @@ export default function AtividadesPage() {
                       </label>
                     )}
                   </div>
+
+                  {/* Notas */}
+                  <NotasSection entidadeId={editingId} entidadeTipo="tarefas" />
 
                   {erro && (
                     <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">

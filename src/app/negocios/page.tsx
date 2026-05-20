@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { supabase } from '@/lib/supabase';
 import { Negocio, Empresa } from '@/types';
+import { NotasSection } from '@/components/NotasSection';
+import { ConcorrentesSection } from '@/components/ConcorrentesSection';
 import {
   Plus,
   Briefcase,
@@ -16,7 +18,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
-import { useAuth } from '@/lib/auth';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const FASES: { id: Negocio['fase']; color: string }[] = [
@@ -46,6 +47,8 @@ const BLANK_FORM = {
   prev_fechamento: '',
   investimento: '0',
   leads: '0',
+  responsavel: '',
+  especialista_nome: '',
 };
 
 function negocioToForm(n: Negocio) {
@@ -59,13 +62,15 @@ function negocioToForm(n: Negocio) {
     prev_fechamento: n.prev_fechamento ? n.prev_fechamento.split('T')[0] : '',
     investimento: String(n.investimento),
     leads: String(n.leads),
+    responsavel: n.responsavel ?? '',
+    especialista_nome: n.especialista_nome ?? '',
   };
 }
 
 export default function NegociosPage() {
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
-  const { user } = useAuth();
+  const [usuarios, setUsuarios] = useState<{ id: string; nome: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [showModal, setShowModal] = useState(false);
@@ -89,6 +94,9 @@ export default function NegociosPage() {
     fetchNegocios();
     supabase.from('empresas').select('id, nome').order('nome').then(({ data }) => {
       if (data) setEmpresas(data as any);
+    });
+    supabase.from('usuarios').select('id, nome').eq('ativo', true).order('nome').then(({ data }) => {
+      if (data) setUsuarios(data);
     });
   }, []);
 
@@ -124,6 +132,8 @@ export default function NegociosPage() {
       investimento: parseFloat(form.investimento) || 0,
       leads: parseInt(form.leads) || 0,
       prev_fechamento: form.prev_fechamento || null,
+      responsavel: form.responsavel || null,
+      especialista_nome: form.especialista_nome || null,
     };
 
     let error;
@@ -243,8 +253,8 @@ export default function NegociosPage() {
                           </div>
 
                           <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                            <div className="flex -space-x-2">
-                              <div className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-600">TA</div>
+                            <div className="text-[10px] text-slate-400 truncate">
+                              {negocio.responsavel || '—'}
                             </div>
                             <ChevronRight size={14} className="text-slate-400 group-hover:text-unifique-primary transition-colors" />
                           </div>
@@ -270,6 +280,7 @@ export default function NegociosPage() {
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Negócio</th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Empresa</th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Fase</th>
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Consultor</th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Valor</th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Prob.</th>
                 </tr>
@@ -298,6 +309,7 @@ export default function NegociosPage() {
                         {negocio.fase}
                       </span>
                     </td>
+                    <td className="p-4 text-sm text-slate-500">{negocio.responsavel || '—'}</td>
                     <td className="p-4 text-right font-bold text-sm text-slate-900">{formatCurrency(negocio.valor)}</td>
                     <td className="p-4 text-center font-bold text-sm text-unifique-success">{negocio.probabilidade}%</td>
                   </motion.tr>
@@ -323,7 +335,7 @@ export default function NegociosPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
           >
             {confirmDelete ? (
               <>
@@ -361,6 +373,7 @@ export default function NegociosPage() {
                 </div>
 
                 <div className="p-6 space-y-4">
+                  {/* Dados do negócio */}
                   <label className="block">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome do Negócio *</span>
                     <input
@@ -452,6 +465,41 @@ export default function NegociosPage() {
                       className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
                     />
                   </label>
+
+                  {/* Responsáveis */}
+                  <div className="border-t border-slate-100 pt-4">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Responsáveis</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Consultor</span>
+                        <select
+                          value={form.responsavel}
+                          onChange={e => setForm(f => ({ ...f, responsavel: e.target.value }))}
+                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary bg-white"
+                        >
+                          <option value="">— Sem atribuição —</option>
+                          {usuarios.map(u => <option key={u.id} value={u.nome}>{u.nome}</option>)}
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Especialista</span>
+                        <select
+                          value={form.especialista_nome}
+                          onChange={e => setForm(f => ({ ...f, especialista_nome: e.target.value }))}
+                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary bg-white"
+                        >
+                          <option value="">— Sem atribuição —</option>
+                          {usuarios.map(u => <option key={u.id} value={u.nome}>{u.nome}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Concorrentes */}
+                  <ConcorrentesSection negocioId={editingId} />
+
+                  {/* Notas */}
+                  <NotasSection entidadeId={editingId} entidadeTipo="negocios" />
 
                   {erro && (
                     <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">

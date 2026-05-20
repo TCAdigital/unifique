@@ -10,6 +10,9 @@ export interface Empresa {
   setor: 'Privado' | 'Público' | 'Misto';
   status: 'Ativo' | 'Negociando' | 'Lead';
   funil?: string;
+  consultor_nome?: string;
+  especialista_nome?: string;
+  pre_venda_nome?: string;
   consultor_id?: string;
   pre_venda_id?: string;
   contato?: string;
@@ -32,6 +35,8 @@ export interface Negocio {
   prev_fechamento?: string;
   flag?: boolean;
   sinais?: Record<string, boolean>;
+  responsavel?: string;
+  especialista_nome?: string;
   created_at: string;
   updated_at?: string;
   empresas?: { nome: string };
@@ -41,6 +46,7 @@ export interface Tarefa {
   id: string;
   titulo: string;
   empresa_id?: string;
+  empresa_nome?: string;
   negocio_id?: string;
   tipo: 'Call' | 'Reunião' | 'E-mail' | 'WhatsApp' | 'Proposta' | 'Outro';
   prazo: string;
@@ -75,5 +81,26 @@ export interface Orcamento {
   orcamento: number;
   gasto: number;
   status: 'Planejado' | 'Executado' | 'Pendente' | 'Cancelado';
+  empresa_id?: string;
+  empresa_nome?: string;
+  created_at: string;
+}
+
+export interface Nota {
+  id: string;
+  entidade_tipo: string;
+  entidade_id: string;
+  conteudo: string;
+  autor?: string;
+  created_at: string;
+}
+
+export interface Concorrente {
+  id: string;
+  negocio_id: string;
+  nome: string;
+  site?: string;
+  forcas?: string;
+  fraquezas?: string;
   created_at: string;
 }
