@@ -27,7 +27,7 @@ export interface Negocio {
   empresa_id: string;
   curva?: 'A' | 'B' | 'C';
   valor: number;
-  fase: 'Prospecção' | 'Qualificação' | 'Proposta' | 'Negociação' | 'Fechamento' | 'Contrato';
+  fase: 'Prospecção' | 'Qualificação' | 'Proposta' | 'Negociação' | 'Fechamento' | 'Contrato' | 'Ganho' | 'Perdido';
   funil?: string;
   probabilidade: number;
   investimento: number;
@@ -37,6 +37,7 @@ export interface Negocio {
   sinais?: Record<string, boolean>;
   responsavel?: string;
   especialista_nome?: string;
+  produtos?: string[];
   created_at: string;
   updated_at?: string;
   empresas?: { nome: string };

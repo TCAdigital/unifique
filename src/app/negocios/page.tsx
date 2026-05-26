@@ -7,35 +7,48 @@ import { Negocio, Empresa } from '@/types';
 import { NotasSection } from '@/components/NotasSection';
 import { ConcorrentesSection } from '@/components/ConcorrentesSection';
 import {
-  Plus,
-  Briefcase,
-  ChevronRight,
-  LayoutGrid,
-  List as ListIcon,
-  X,
-  Loader2,
-  Trash2,
-  AlertTriangle,
+  Plus, Briefcase, ChevronRight, LayoutGrid, List as ListIcon,
+  X, Loader2, Trash2, AlertTriangle, Tag,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const FASES: { id: Negocio['fase']; color: string }[] = [
+const FASES_KANBAN: { id: Negocio['fase']; color: string }[] = [
   { id: 'Prospecção', color: 'bg-slate-400' },
   { id: 'Qualificação', color: 'bg-blue-400' },
   { id: 'Proposta', color: 'bg-amber-400' },
   { id: 'Negociação', color: 'bg-indigo-400' },
   { id: 'Fechamento', color: 'bg-emerald-500' },
+  { id: 'Contrato', color: 'bg-purple-500' },
 ];
 
 const FASE_LABEL_COLORS: Record<string, string> = {
-  'Prospecção': 'bg-slate-100 text-slate-600',
-  'Qualificação': 'bg-blue-100 text-blue-700',
-  'Proposta': 'bg-amber-100 text-amber-700',
-  'Negociação': 'bg-indigo-100 text-indigo-700',
-  'Fechamento': 'bg-emerald-100 text-emerald-700',
-  'Contrato': 'bg-purple-100 text-purple-700',
+  'Prospecção':  'bg-slate-100 text-slate-600',
+  'Qualificação':'bg-blue-100 text-blue-700',
+  'Proposta':    'bg-amber-100 text-amber-700',
+  'Negociação':  'bg-indigo-100 text-indigo-700',
+  'Fechamento':  'bg-emerald-100 text-emerald-700',
+  'Contrato':    'bg-purple-100 text-purple-700',
+  'Ganho':       'bg-emerald-600 text-white',
+  'Perdido':     'bg-red-100 text-red-700',
 };
+
+const PRODUTOS_UNIFIQUE = [
+  'Cloud', 'Cibersegurança', 'Outsourcing IT', 'Network 5GaaS Privativa',
+  'Wi-Fi Business', 'Telemedicina', 'Casa Inteligente', 'Projetos B2G PPP',
+  'Projetos Câmeras B2G (Especial)', 'Unifique Câmeras B2B',
+  'Projetos Eventos – Mercado', 'Rede Móvel IoT B2B',
+  'Fibra Dedicado e Interconexão B2B - Mercado',
+  'Fibra Dedicado e Interconexão B2G - Mercado',
+  'Fibra BL Empresas B2B – Mercado', 'Proteção DDoS Fibra – Mercado',
+  'Rastreadores Unifique',
+];
+
+const FABRICANTES = [
+  'Fortinet', 'CrowdStrike', 'Tenable', 'Wazuh', 'Prestador de Serviço',
+  'IBM', 'ZTE', 'Huawei', 'TP-LINK', 'CISCO', 'Microsoft',
+  'Google WorkSpace', 'Juniper', 'Omnissa', 'Kubernetes', 'Cloud IA',
+];
 
 const BLANK_FORM = {
   nome: '',
@@ -49,6 +62,7 @@ const BLANK_FORM = {
   leads: '0',
   responsavel: '',
   especialista_nome: '',
+  produtos: [] as string[],
 };
 
 function negocioToForm(n: Negocio) {
@@ -64,6 +78,7 @@ function negocioToForm(n: Negocio) {
     leads: String(n.leads),
     responsavel: n.responsavel ?? '',
     especialista_nome: n.especialista_nome ?? '',
+    produtos: Array.isArray(n.produtos) ? [...n.produtos] : [],
   };
 }
 
@@ -77,6 +92,7 @@ export default function NegociosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [form, setForm] = useState(BLANK_FORM);
+  const [produtoSelecionado, setProdutoSelecionado] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [erro, setErro] = useState('');
@@ -104,6 +120,7 @@ export default function NegociosPage() {
     setEditingId(null);
     setConfirmDelete(false);
     setForm({ ...BLANK_FORM, empresa_id: empresas[0]?.id ?? '' });
+    setProdutoSelecionado('');
     setErro('');
     setShowModal(true);
   }
@@ -112,8 +129,19 @@ export default function NegociosPage() {
     setEditingId(negocio.id);
     setConfirmDelete(false);
     setForm(negocioToForm(negocio));
+    setProdutoSelecionado('');
     setErro('');
     setShowModal(true);
+  }
+
+  function addProduto() {
+    if (!produtoSelecionado || form.produtos.includes(produtoSelecionado)) return;
+    setForm(f => ({ ...f, produtos: [...f.produtos, produtoSelecionado] }));
+    setProdutoSelecionado('');
+  }
+
+  function removeProduto(p: string) {
+    setForm(f => ({ ...f, produtos: f.produtos.filter(x => x !== p) }));
   }
 
   async function handleSave() {
@@ -134,6 +162,7 @@ export default function NegociosPage() {
       prev_fechamento: form.prev_fechamento || null,
       responsavel: form.responsavel || null,
       especialista_nome: form.especialista_nome || null,
+      produtos: form.produtos,
     };
 
     let error;
@@ -160,6 +189,9 @@ export default function NegociosPage() {
     setNegocios(prev => prev.filter(n => n.id !== editingId));
   }
 
+  const negociosAtivos = negocios.filter(n => n.fase !== 'Ganho' && n.fase !== 'Perdido');
+  const negociosFechados = negocios.filter(n => n.fase === 'Ganho' || n.fase === 'Perdido');
+
   return (
     <Shell>
       <div className="space-y-6">
@@ -171,25 +203,18 @@ export default function NegociosPage() {
           </div>
           <div className="flex items-center gap-2">
             <div className="bg-white border border-slate-200 rounded-xl p-1 flex gap-1">
-              <button
-                onClick={() => setView('kanban')}
-                className={cn("p-1.5 rounded-lg transition-all", view === 'kanban' ? "bg-unifique-primary text-white shadow-sm" : "text-slate-500 hover:bg-slate-100")}
-              >
+              <button onClick={() => setView('kanban')}
+                className={cn("p-1.5 rounded-lg transition-all", view === 'kanban' ? "bg-unifique-primary text-white shadow-sm" : "text-slate-500 hover:bg-slate-100")}>
                 <LayoutGrid size={18} />
               </button>
-              <button
-                onClick={() => setView('list')}
-                className={cn("p-1.5 rounded-lg transition-all", view === 'list' ? "bg-unifique-primary text-white shadow-sm" : "text-slate-500 hover:bg-slate-100")}
-              >
+              <button onClick={() => setView('list')}
+                className={cn("p-1.5 rounded-lg transition-all", view === 'list' ? "bg-unifique-primary text-white shadow-sm" : "text-slate-500 hover:bg-slate-100")}>
                 <ListIcon size={18} />
               </button>
             </div>
-            <button
-              onClick={openCreate}
-              className="flex items-center gap-2 px-4 py-2 bg-unifique-primary text-white rounded-xl font-bold shadow-lg shadow-unifique-primary/20 hover:scale-[1.02] transition-all"
-            >
-              <Plus size={18} />
-              Novo Negócio
+            <button onClick={openCreate}
+              className="flex items-center gap-2 px-4 py-2 bg-unifique-primary text-white rounded-xl font-bold shadow-lg shadow-unifique-primary/20 hover:scale-[1.02] transition-all">
+              <Plus size={18} /> Novo Negócio
             </button>
           </div>
         </div>
@@ -200,77 +225,90 @@ export default function NegociosPage() {
             <p className="text-sm text-slate-500 animate-pulse font-medium">Sincronizando pipeline...</p>
           </div>
         ) : view === 'kanban' ? (
-          /* Kanban View */
-          <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 min-h-[600px]">
-            {FASES.map((fase) => {
-              const negociosNaFase = negocios.filter(n => n.fase === fase.id);
-              const totalValor = negociosNaFase.reduce((acc, n) => acc + n.valor, 0);
-
-              return (
-                <div key={fase.id} className="flex-shrink-0 w-80 flex flex-col gap-4">
-                  <div className="flex items-center justify-between px-2">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", fase.color)} />
-                      <h2 className="font-bold text-sm text-slate-700 uppercase tracking-wider">{fase.id}</h2>
-                      <span className="bg-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full text-slate-500">
-                        {negociosNaFase.length}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400">{formatCurrency(totalValor)}</span>
-                  </div>
-
-                  <div className="flex-1 space-y-3 p-2 bg-slate-100/50 rounded-2xl border border-dashed border-slate-300">
-                    <AnimatePresence>
-                      {negociosNaFase.map((negocio, idx) => (
-                        <motion.div
-                          key={negocio.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: idx * 0.05 }}
-                          layout
-                          onClick={() => openEdit(negocio)}
-                          className="glass-card p-4 hover:border-unifique-primary/50 cursor-pointer group transition-all"
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <span className="text-[10px] font-bold text-unifique-primary uppercase tracking-tight truncate">
-                              {negocio.empresas?.nome || 'Empresa desconhecida'}
-                            </span>
-                            <div className="w-2 h-2 rounded-full bg-unifique-success flex-shrink-0 mt-0.5" />
-                          </div>
-                          <h3 className="font-bold text-sm text-slate-900 mb-3 group-hover:text-unifique-primary transition-colors">
-                            {negocio.nome}
-                          </h3>
-
-                          <div className="flex items-center justify-between mt-4">
-                            <div>
-                              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Valor</p>
-                              <p className="text-sm font-bold text-slate-900">{formatCurrency(negocio.valor)}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Prob.</p>
-                              <p className="text-sm font-bold text-unifique-success">{negocio.probabilidade}%</p>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                            <div className="text-[10px] text-slate-400 truncate">
-                              {negocio.responsavel || '—'}
-                            </div>
-                            <ChevronRight size={14} className="text-slate-400 group-hover:text-unifique-primary transition-colors" />
-                          </div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                    {negociosNaFase.length === 0 && (
-                      <div className="h-20 flex items-center justify-center">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vazio</p>
+          <>
+            <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 min-h-[500px]">
+              {FASES_KANBAN.map((fase) => {
+                const negociosNaFase = negociosAtivos.filter(n => n.fase === fase.id);
+                const totalValor = negociosNaFase.reduce((acc, n) => acc + n.valor, 0);
+                return (
+                  <div key={fase.id} className="flex-shrink-0 w-72 flex flex-col gap-3">
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-2 h-2 rounded-full", fase.color)} />
+                        <h2 className="font-bold text-xs text-slate-700 uppercase tracking-wider">{fase.id}</h2>
+                        <span className="bg-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full text-slate-500">{negociosNaFase.length}</span>
                       </div>
-                    )}
+                      <span className="text-[10px] font-bold text-slate-400">{formatCurrency(totalValor)}</span>
+                    </div>
+                    <div className="flex-1 space-y-3 p-2 bg-slate-100/50 rounded-2xl border border-dashed border-slate-300 min-h-[200px]">
+                      <AnimatePresence>
+                        {negociosNaFase.map((negocio, idx) => (
+                          <motion.div key={negocio.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.05 }} layout
+                            onClick={() => openEdit(negocio)}
+                            className="glass-card p-4 hover:border-unifique-primary/50 cursor-pointer group transition-all">
+                            <div className="flex justify-between items-start mb-2">
+                              <span className="text-[10px] font-bold text-unifique-primary uppercase tracking-tight truncate">
+                                {negocio.empresas?.nome || 'Empresa desconhecida'}
+                              </span>
+                            </div>
+                            <h3 className="font-bold text-sm text-slate-900 mb-2 group-hover:text-unifique-primary transition-colors">{negocio.nome}</h3>
+                            {Array.isArray(negocio.produtos) && negocio.produtos.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-2">
+                                {negocio.produtos.slice(0, 2).map(p => (
+                                  <span key={p} className="text-[9px] font-bold px-1.5 py-0.5 bg-unifique-primary/10 text-unifique-primary rounded">{p}</span>
+                                ))}
+                                {negocio.produtos.length > 2 && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">+{negocio.produtos.length - 2}</span>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                              <div>
+                                <p className="text-[10px] text-slate-500 font-bold">Valor</p>
+                                <p className="text-sm font-bold text-slate-900">{formatCurrency(negocio.valor)}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[10px] text-slate-500 font-bold">Prob.</p>
+                                <p className="text-sm font-bold text-unifique-success">{negocio.probabilidade}%</p>
+                              </div>
+                              <ChevronRight size={14} className="text-slate-400 group-hover:text-unifique-primary transition-colors" />
+                            </div>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                      {negociosNaFase.length === 0 && (
+                        <div className="h-20 flex items-center justify-center">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vazio</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Fechados (Ganho / Perdido) */}
+            {negociosFechados.length > 0 && (
+              <div className="glass-card overflow-hidden">
+                <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Encerrados</span>
+                  <span className="bg-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full text-slate-500">{negociosFechados.length}</span>
                 </div>
-              );
-            })}
-          </div>
+                <div className="divide-y divide-slate-100">
+                  {negociosFechados.map(n => (
+                    <div key={n.id} onClick={() => openEdit(n)}
+                      className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 cursor-pointer transition-all">
+                      <span className={cn("text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0", FASE_LABEL_COLORS[n.fase])}>{n.fase}</span>
+                      <span className="font-bold text-sm text-slate-800 flex-1 truncate">{n.nome}</span>
+                      <span className="text-xs text-slate-500 truncate">{n.empresas?.nome}</span>
+                      <span className="font-bold text-sm text-slate-700 flex-shrink-0">{formatCurrency(n.valor)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           /* List View */
           <div className="glass-card overflow-hidden">
@@ -281,20 +319,16 @@ export default function NegociosPage() {
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Empresa</th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Fase</th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Consultor</th>
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Produtos</th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Valor</th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Prob.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {negocios.map((negocio, idx) => (
-                  <motion.tr
-                    key={negocio.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: idx * 0.03 }}
-                    onClick={() => openEdit(negocio)}
-                    className="hover:bg-slate-50 transition-all cursor-pointer"
-                  >
+                  <motion.tr key={negocio.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    transition={{ delay: idx * 0.03 }} onClick={() => openEdit(negocio)}
+                    className="hover:bg-slate-50 transition-all cursor-pointer">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-unifique-primary/10 flex items-center justify-center text-unifique-primary">
@@ -310,6 +344,16 @@ export default function NegociosPage() {
                       </span>
                     </td>
                     <td className="p-4 text-sm text-slate-500">{negocio.responsavel || '—'}</td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-1">
+                        {Array.isArray(negocio.produtos) && negocio.produtos.slice(0, 2).map(p => (
+                          <span key={p} className="text-[9px] font-bold px-1.5 py-0.5 bg-unifique-primary/10 text-unifique-primary rounded">{p}</span>
+                        ))}
+                        {Array.isArray(negocio.produtos) && negocio.produtos.length > 2 && (
+                          <span className="text-[9px] text-slate-400">+{negocio.produtos.length - 2}</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-4 text-right font-bold text-sm text-slate-900">{formatCurrency(negocio.valor)}</td>
                     <td className="p-4 text-center font-bold text-sm text-unifique-success">{negocio.probabilidade}%</td>
                   </motion.tr>
@@ -320,9 +364,7 @@ export default function NegociosPage() {
               <div className="p-12 text-center">
                 <Briefcase size={40} className="mx-auto text-slate-300 mb-3" />
                 <p className="text-slate-500 font-medium">Nenhum negócio cadastrado.</p>
-                <button onClick={openCreate} className="mt-4 text-unifique-primary text-sm font-bold hover:underline">
-                  Criar primeiro negócio
-                </button>
+                <button onClick={openCreate} className="mt-4 text-unifique-primary text-sm font-bold hover:underline">Criar primeiro negócio</button>
               </div>
             )}
           </div>
@@ -332,11 +374,8 @@ export default function NegociosPage() {
       {/* Modal Negócio */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,24,64,0.45)', backdropFilter: 'blur(4px)' }}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-          >
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             {confirmDelete ? (
               <>
                 <div className="p-6 text-center">
@@ -347,17 +386,10 @@ export default function NegociosPage() {
                   <p className="text-sm text-slate-500">Esta ação não pode ser desfeita.</p>
                 </div>
                 <div className="flex items-center justify-center gap-3 p-6 border-t border-slate-100">
-                  <button
-                    onClick={() => setConfirmDelete(false)}
-                    className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="flex items-center gap-2 px-5 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-600 disabled:opacity-60 transition-all"
-                  >
+                  <button onClick={() => setConfirmDelete(false)}
+                    className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all">Cancelar</button>
+                  <button onClick={handleDelete} disabled={deleting}
+                    className="flex items-center gap-2 px-5 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-600 disabled:opacity-60 transition-all">
                     {deleting && <Loader2 size={14} className="animate-spin" />}
                     {deleting ? 'Excluindo...' : 'Sim, Excluir'}
                   </button>
@@ -373,31 +405,21 @@ export default function NegociosPage() {
                 </div>
 
                 <div className="p-6 space-y-4">
-                  {/* Dados do negócio */}
+                  {/* Dados básicos */}
                   <label className="block">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome do Negócio *</span>
-                    <input
-                      type="text"
-                      value={form.nome}
-                      onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
-                      placeholder="Ex: Expansão de Rede — Acme"
-                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                      autoFocus
-                    />
+                    <input type="text" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
+                      placeholder="Ex: Expansão de Rede — Acme" autoFocus
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
                   </label>
 
                   <label className="block">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Empresa *</span>
                     {empresas.length > 0 ? (
-                      <select
-                        value={form.empresa_id}
-                        onChange={e => setForm(f => ({ ...f, empresa_id: e.target.value }))}
-                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
-                      >
+                      <select value={form.empresa_id} onChange={e => setForm(f => ({ ...f, empresa_id: e.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white">
                         <option value="">Selecione...</option>
-                        {empresas.map(e => (
-                          <option key={e.id} value={e.id}>{e.nome}</option>
-                        ))}
+                        {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
                       </select>
                     ) : (
                       <p className="mt-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
@@ -409,46 +431,36 @@ export default function NegociosPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block">
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Valor (R$)</span>
-                      <input
-                        type="number"
-                        value={form.valor}
-                        onChange={e => setForm(f => ({ ...f, valor: e.target.value }))}
-                        placeholder="0"
-                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                      />
+                      <input type="number" value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} placeholder="0"
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
                     </label>
                     <label className="block">
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Probabilidade (%)</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={form.probabilidade}
-                        onChange={e => setForm(f => ({ ...f, probabilidade: e.target.value }))}
-                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                      />
+                      <input type="number" min="0" max="100" value={form.probabilidade} onChange={e => setForm(f => ({ ...f, probabilidade: e.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
                     </label>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block">
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fase</span>
-                      <select
-                        value={form.fase}
-                        onChange={e => setForm(f => ({ ...f, fase: e.target.value as any }))}
-                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
-                      >
-                        {FASES.map(f => <option key={f.id}>{f.id}</option>)}
+                      <select value={form.fase} onChange={e => setForm(f => ({ ...f, fase: e.target.value as any }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white">
+                        <option value="Prospecção">Prospecção</option>
+                        <option value="Qualificação">Qualificação</option>
+                        <option value="Proposta">Proposta</option>
+                        <option value="Negociação">Negociação</option>
+                        <option value="Fechamento">Fechamento</option>
                         <option value="Contrato">Contrato</option>
+                        <option disabled>──────────</option>
+                        <option value="Ganho">✓ Ganho</option>
+                        <option value="Perdido">✗ Perdido</option>
                       </select>
                     </label>
                     <label className="block">
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Curva</span>
-                      <select
-                        value={form.curva}
-                        onChange={e => setForm(f => ({ ...f, curva: e.target.value as any }))}
-                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
-                      >
+                      <select value={form.curva} onChange={e => setForm(f => ({ ...f, curva: e.target.value as any }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white">
                         <option value="A">A — Alta prioridade</option>
                         <option value="B">B — Média prioridade</option>
                         <option value="C">C — Baixa prioridade</option>
@@ -458,13 +470,49 @@ export default function NegociosPage() {
 
                   <label className="block">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Previsão de Fechamento</span>
-                    <input
-                      type="date"
-                      value={form.prev_fechamento}
-                      onChange={e => setForm(f => ({ ...f, prev_fechamento: e.target.value }))}
-                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all"
-                    />
+                    <input type="date" value={form.prev_fechamento} onChange={e => setForm(f => ({ ...f, prev_fechamento: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
                   </label>
+
+                  {/* Produto / Serviço */}
+                  <div className="border-t border-slate-100 pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Tag size={14} className="text-slate-400" />
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Produto / Serviço *</p>
+                    </div>
+                    <div className="flex gap-2 mb-2">
+                      <select value={produtoSelecionado} onChange={e => setProdutoSelecionado(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary bg-white">
+                        <option value="">Selecionar produto/serviço...</option>
+                        <optgroup label="Unifique">
+                          {PRODUTOS_UNIFIQUE.filter(p => !form.produtos.includes(p)).map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Fabricantes / Parceiros">
+                          {FABRICANTES.filter(p => !form.produtos.includes(p)).map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                      <button onClick={addProduto} disabled={!produtoSelecionado}
+                        className="px-3 py-2 bg-unifique-primary text-white rounded-lg disabled:opacity-50 transition-all flex-shrink-0">
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                    {form.produtos.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {form.produtos.map(p => (
+                          <span key={p} className="flex items-center gap-1 px-2.5 py-1 bg-unifique-primary/10 text-unifique-primary text-xs font-bold rounded-lg">
+                            {p}
+                            <button onClick={() => removeProduto(p)} className="hover:text-red-500 transition-colors ml-0.5">
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Responsáveis */}
                   <div className="border-t border-slate-100 pt-4">
@@ -472,22 +520,16 @@ export default function NegociosPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <label className="block">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Consultor</span>
-                        <select
-                          value={form.responsavel}
-                          onChange={e => setForm(f => ({ ...f, responsavel: e.target.value }))}
-                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary bg-white"
-                        >
+                        <select value={form.responsavel} onChange={e => setForm(f => ({ ...f, responsavel: e.target.value }))}
+                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary bg-white">
                           <option value="">— Sem atribuição —</option>
                           {usuarios.map(u => <option key={u.id} value={u.nome}>{u.nome}</option>)}
                         </select>
                       </label>
                       <label className="block">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Especialista</span>
-                        <select
-                          value={form.especialista_nome}
-                          onChange={e => setForm(f => ({ ...f, especialista_nome: e.target.value }))}
-                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary bg-white"
-                        >
+                        <select value={form.especialista_nome} onChange={e => setForm(f => ({ ...f, especialista_nome: e.target.value }))}
+                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary bg-white">
                           <option value="">— Sem atribuição —</option>
                           {usuarios.map(u => <option key={u.id} value={u.nome}>{u.nome}</option>)}
                         </select>
@@ -502,34 +544,22 @@ export default function NegociosPage() {
                   <NotasSection entidadeId={editingId} entidadeTipo="negocios" />
 
                   {erro && (
-                    <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">
-                      {erro}
-                    </div>
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">{erro}</div>
                   )}
                 </div>
 
                 <div className="flex items-center justify-between p-6 border-t border-slate-100">
                   {editingId ? (
-                    <button
-                      onClick={() => setConfirmDelete(true)}
-                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                    >
-                      <Trash2 size={14} />
-                      Excluir
+                    <button onClick={() => setConfirmDelete(true)}
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                      <Trash2 size={14} /> Excluir
                     </button>
                   ) : <div />}
                   <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setShowModal(false)}
-                      className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving || empresas.length === 0}
-                      className="flex items-center gap-2 px-5 py-2 bg-unifique-primary text-white text-sm font-bold rounded-lg hover:bg-unifique-primary/90 disabled:opacity-60 transition-all"
-                    >
+                    <button onClick={() => setShowModal(false)}
+                      className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all">Cancelar</button>
+                    <button onClick={handleSave} disabled={saving || empresas.length === 0}
+                      className="flex items-center gap-2 px-5 py-2 bg-unifique-primary text-white text-sm font-bold rounded-lg hover:bg-unifique-primary/90 disabled:opacity-60 transition-all">
                       {saving && <Loader2 size={14} className="animate-spin" />}
                       {saving ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Criar Negócio'}
                     </button>

@@ -82,6 +82,7 @@ export default function OrcamentoPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [periodoFiltro, setPeriodoFiltro] = useState(PERIODOS[0]);
+  const [erro, setErro] = useState('');
 
   useEffect(() => {
     loadData();
@@ -112,8 +113,9 @@ export default function OrcamentoPage() {
   async function handleSave() {
     if (!form.descricao || !form.orcamento) return;
     setSaving(true);
-    await supabase.from("orcamentos").insert({
-      consultor_id: user?.id ?? null,
+    setErro('');
+    const { error } = await supabase.from("orcamentos").insert({
+      consultor: user?.nome ?? null,
       periodo: `${form.periodo}-01`,
       categoria: form.categoria,
       descricao: form.descricao,
@@ -123,9 +125,10 @@ export default function OrcamentoPage() {
       empresa_id: form.empresa_id || null,
       empresa_nome: form.empresa_nome || null,
     });
+    setSaving(false);
+    if (error) { setErro('Erro ao salvar: ' + error.message); return; }
     setForm(EMPTY_FORM);
     setShowForm(false);
-    setSaving(false);
     loadData();
   }
 
@@ -283,6 +286,9 @@ export default function OrcamentoPage() {
                 />
               </div>
             </div>
+            {erro && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">{erro}</div>
+            )}
             <div className="flex gap-3 mt-4">
               <button
                 onClick={handleSave}
@@ -293,7 +299,7 @@ export default function OrcamentoPage() {
                 Salvar
               </button>
               <button
-                onClick={() => { setShowForm(false); setForm(EMPTY_FORM); }}
+                onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setErro(''); }}
                 className="px-5 py-2 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
               >
                 Cancelar
