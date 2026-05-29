@@ -32,14 +32,7 @@ const PERIODS = generatePeriods();
 
 const STATS_BY_PERIOD: Record<string, {
   rob: number; rol: number; ll: number; margem: string;
-}> = {
-  [PERIODS[0].value]: { rob: 462800, rol: 393400, ll: 131200, margem: '33.3%' },
-  [PERIODS[1].value]: { rob: 450200, rol: 382600, ll: 125400, margem: '32.7%' },
-  [PERIODS[2].value]: { rob: 438100, rol: 371900, ll: 119800, margem: '32.2%' },
-  [PERIODS[3].value]: { rob: 421500, rol: 358200, ll: 112600, margem: '31.4%' },
-  [PERIODS[4].value]: { rob: 408300, rol: 346500, ll: 107900, margem: '31.1%' },
-  [PERIODS[5].value]: { rob: 395700, rol: 335900, ll: 103200, margem: '30.7%' },
-};
+}> = {};
 
 export default function TiVendasPage() {
   const [period, setPeriod] = useState(PERIODS[0].value);
@@ -58,7 +51,7 @@ export default function TiVendasPage() {
   }, [showDropdown]);
 
   const currentPeriodLabel = PERIODS.find(p => p.value === period)?.label ?? '';
-  const data = STATS_BY_PERIOD[period] ?? STATS_BY_PERIOD[PERIODS[1].value];
+  const data = STATS_BY_PERIOD[period] ?? { rob: 0, rol: 0, ll: 0, margem: '0%' };
 
   const stats = [
     { label: 'Receita Bruta (ROB)', value: data.rob, trend: '+14%', color: 'text-blue-500', bg: 'bg-blue-500/10' },

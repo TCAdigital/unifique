@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shell } from "@/components/layout/Shell";
 import { cn, formatCurrency } from "@/lib/utils";
 import { ArrowLeftRight, ArrowDownLeft, ArrowUpRight, Plus, X, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "@/lib/supabase";
 
 type TipoMov = "Entrada" | "Saída" | "Transferência";
 
@@ -19,14 +20,6 @@ interface Movimentacao {
   responsavel: string;
   observacao?: string;
 }
-
-const MOVS_INITIAL: Movimentacao[] = [
-  { id: "1", data: "2026-04-25", tipo: "Entrada", item: "Switch Cisco Catalyst 2960", categoria: "Rede", quantidade: 5, valor: 3200, responsavel: "João Silva", observacao: "NF 12345 — Fornecedor DataCenter SP" },
-  { id: "2", data: "2026-04-24", tipo: "Saída", item: "Notebook Dell Latitude 5430", categoria: "Hardware", quantidade: 2, valor: 7800, responsavel: "Ana Paula", observacao: "Projeto Suzano — entrega cliente" },
-  { id: "3", data: "2026-04-23", tipo: "Transferência", item: "Access Point UniFi U6", categoria: "Rede", quantidade: 8, valor: 1200, responsavel: "João Silva", observacao: "Transferência depósito SC → SP" },
-  { id: "4", data: "2026-04-22", tipo: "Entrada", item: "Licença Microsoft 365 Business", categoria: "Software", quantidade: 20, valor: 450, responsavel: "Tadeu Alves" },
-  { id: "5", data: "2026-04-21", tipo: "Saída", item: "Servidor HP ProLiant ML30", categoria: "Infraestrutura", quantidade: 1, valor: 14500, responsavel: "Carlos Lima", observacao: "Projeto GrupoMax" },
-];
 
 const TIPO_CONFIG: Record<TipoMov, { color: string; bg: string; icon: React.ElementType }> = {
   Entrada: { color: "text-emerald-600", bg: "bg-emerald-50", icon: ArrowDownLeft },
@@ -48,19 +41,41 @@ const BLANK_FORM = {
 };
 
 export default function MovimentacoesPage() {
-  const [movs, setMovs] = useState<Movimentacao[]>(MOVS_INITIAL);
+  const [movs, setMovs] = useState<Movimentacao[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<"Todas" | TipoMov>("Todas");
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(BLANK_FORM);
   const [erro, setErro] = useState("");
   const [saving, setSaving] = useState(false);
 
+  async function loadData() {
+    const { data } = await supabase
+      .from("ti_movimentacoes")
+      .select("id, data_mov, tipo, item_nome, categoria, qtd, custo, usuario, obs")
+      .order("data_mov", { ascending: false });
+    setMovs((data ?? []).map(d => ({
+      id: d.id,
+      data: d.data_mov,
+      tipo: d.tipo as TipoMov,
+      item: d.item_nome ?? "",
+      categoria: d.categoria ?? "",
+      quantidade: d.qtd ?? 0,
+      valor: Number(d.custo) || 0,
+      responsavel: d.usuario ?? "",
+      observacao: d.obs ?? undefined,
+    })));
+    setLoading(false);
+  }
+
+  useEffect(() => { loadData(); }, []);
+
   const filtered = filtro === "Todas" ? movs : movs.filter((m) => m.tipo === filtro);
   const entradas = movs.filter((m) => m.tipo === "Entrada").reduce((s, m) => s + m.valor * m.quantidade, 0);
   const saidas = movs.filter((m) => m.tipo === "Saída").reduce((s, m) => s + m.valor * m.quantidade, 0);
 
   function openModal() {
-    setForm(BLANK_FORM);
+    setForm({ ...BLANK_FORM, data: new Date().toISOString().split("T")[0] });
     setErro("");
     setShowModal(true);
   }
@@ -69,21 +84,21 @@ export default function MovimentacoesPage() {
     if (!form.item.trim()) { setErro("Descrição do item é obrigatória."); return; }
     if (!form.responsavel.trim()) { setErro("Responsável é obrigatório."); return; }
     setSaving(true);
-    await new Promise(r => setTimeout(r, 300));
-    const nova: Movimentacao = {
+    const { error } = await supabase.from("ti_movimentacoes").insert({
       id: String(Date.now()),
-      data: form.data,
+      data_mov: form.data,
       tipo: form.tipo,
-      item: form.item.trim(),
+      item_nome: form.item.trim(),
       categoria: form.categoria,
-      quantidade: parseInt(form.quantidade) || 1,
-      valor: parseFloat(form.valor) || 0,
-      responsavel: form.responsavel.trim(),
-      observacao: form.observacao.trim() || undefined,
-    };
-    setMovs(prev => [nova, ...prev]);
+      qtd: parseInt(form.quantidade) || 1,
+      custo: parseFloat(form.valor) || 0,
+      usuario: form.responsavel.trim(),
+      obs: form.observacao.trim() || null,
+    });
     setSaving(false);
+    if (error) { setErro("Erro ao salvar: " + error.message); return; }
     setShowModal(false);
+    loadData();
   }
 
   return (
@@ -137,7 +152,12 @@ export default function MovimentacoesPage() {
 
         <div className="glass-card overflow-hidden">
           <div className="divide-y divide-slate-100">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="p-12 text-center text-slate-400">
+                <Loader2 className="animate-spin mx-auto mb-2" size={20} />
+                <p>Carregando...</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="p-12 text-center text-slate-400">
                 <p>Nenhuma movimentação encontrada.</p>
               </div>
@@ -180,7 +200,6 @@ export default function MovimentacoesPage() {
         </div>
       </div>
 
-      {/* Modal Nova Movimentação */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,24,64,0.45)", backdropFilter: "blur(4px)" }}>
           <motion.div
@@ -300,7 +319,7 @@ export default function MovimentacoesPage() {
             </div>
 
             <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-100">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all">
+              <button onClick={() => { setShowModal(false); setErro(""); }} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all">
                 Cancelar
               </button>
               <button

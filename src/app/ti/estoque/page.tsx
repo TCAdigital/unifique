@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/layout/Shell';
 import { Package, Search, Plus, AlertTriangle, ArrowRightLeft, X, Loader2 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 
 interface ItemEstoque {
   id: string;
@@ -15,14 +16,6 @@ interface ItemEstoque {
   min: number;
   valor: number;
 }
-
-const ESTOQUE_INITIAL: ItemEstoque[] = [
-  { id: '1', item: 'Notebook Dell Latitude', cat: 'Hardware', qtd: 12, min: 5, valor: 4500 },
-  { id: '2', item: 'Monitor 24" LG', cat: 'Hardware', qtd: 8, min: 10, valor: 900 },
-  { id: '3', item: 'Licença Office 365 BP', cat: 'Software', qtd: 50, min: 20, valor: 85 },
-  { id: '4', item: 'Firewall Fortigate', cat: 'Network', qtd: 3, min: 2, valor: 8500 },
-  { id: '5', item: 'Switch 24 Portas', cat: 'Network', qtd: 1, min: 3, valor: 1200 },
-];
 
 const CATEGORIAS = ['Hardware', 'Software', 'Network', 'Infraestrutura', 'Segurança', 'Cabeamento', 'Outro'];
 
@@ -36,12 +29,31 @@ const BLANK_FORM = {
 
 export default function TiEstoquePage() {
   const router = useRouter();
-  const [estoque, setEstoque] = useState<ItemEstoque[]>(ESTOQUE_INITIAL);
+  const [estoque, setEstoque] = useState<ItemEstoque[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(BLANK_FORM);
   const [erro, setErro] = useState('');
   const [saving, setSaving] = useState(false);
+
+  async function loadData() {
+    const { data } = await supabase
+      .from('ti_itens')
+      .select('id, nome, tipo, qtd_estoque, qtd_min, custo_unit')
+      .order('nome');
+    setEstoque((data ?? []).map(d => ({
+      id: d.id,
+      item: d.nome,
+      cat: d.tipo,
+      qtd: d.qtd_estoque ?? 0,
+      min: d.qtd_min ?? 0,
+      valor: Number(d.custo_unit) || 0,
+    })));
+    setLoading(false);
+  }
+
+  useEffect(() => { loadData(); }, []);
 
   const filtered = estoque.filter(i =>
     i.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -60,18 +72,18 @@ export default function TiEstoquePage() {
   async function handleSave() {
     if (!form.item.trim()) { setErro('Nome do item é obrigatório.'); return; }
     setSaving(true);
-    await new Promise(r => setTimeout(r, 300));
-    const novo: ItemEstoque = {
+    const { error } = await supabase.from('ti_itens').insert({
       id: String(Date.now()),
-      item: form.item.trim(),
-      cat: form.cat,
-      qtd: parseInt(form.qtd) || 0,
-      min: parseInt(form.min) || 0,
-      valor: parseFloat(form.valor) || 0,
-    };
-    setEstoque(prev => [...prev, novo]);
+      nome: form.item.trim(),
+      tipo: form.cat,
+      qtd_estoque: parseInt(form.qtd) || 0,
+      qtd_min: parseInt(form.min) || 0,
+      custo_unit: parseFloat(form.valor) || 0,
+    });
     setSaving(false);
+    if (error) { setErro('Erro ao salvar: ' + error.message); return; }
     setShowModal(false);
+    loadData();
   }
 
   return (
@@ -149,7 +161,18 @@ export default function TiEstoquePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filtered.map((item, idx) => {
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="p-12 text-center text-slate-400 text-sm">
+                    <Loader2 className="animate-spin mx-auto mb-2" size={20} />
+                    Carregando...
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-12 text-center text-slate-400 text-sm">Nenhum item encontrado.</td>
+                </tr>
+              ) : filtered.map((item, idx) => {
                 const isLow = item.qtd <= item.min;
                 return (
                   <motion.tr
@@ -189,17 +212,11 @@ export default function TiEstoquePage() {
                   </motion.tr>
                 );
               })}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="p-12 text-center text-slate-400 text-sm">Nenhum item encontrado.</td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Modal Novo Item */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,24,64,0.45)', backdropFilter: 'blur(4px)' }}>
           <motion.div
@@ -279,7 +296,7 @@ export default function TiEstoquePage() {
             </div>
 
             <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-100">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all">
+              <button onClick={() => { setShowModal(false); setErro(''); }} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-all">
                 Cancelar
               </button>
               <button
