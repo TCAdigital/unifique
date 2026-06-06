@@ -28,6 +28,7 @@ import {
   Mail,
   Kanban,
   Package,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -72,6 +73,12 @@ const MENU_ITEMS = [
       { id: "ti-movs", label: "Movimentações", icon: ArrowLeftRight, href: "/ti/movs" },
       { id: "ti-vendas", label: "Vendas e Finanças", icon: DollarSign, href: "/ti/vendas" },
       { id: "ti-relatorios", label: "Relatórios", icon: FileBarChart, href: "/ti/relatorios" },
+    ],
+  },
+  {
+    group: "CONFIGURAÇÕES",
+    items: [
+      { id: "usuarios", label: "Usuários & Perfis", icon: Users, href: "/usuarios" },
     ],
   },
   {
