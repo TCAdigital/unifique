@@ -29,6 +29,7 @@ import {
   Kanban,
   Package,
   Users,
+  Calculator,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -39,8 +40,8 @@ type Perfil = "admin" | "gerente" | "consultor" | "preVenda";
 const ROLE_ALLOWED: Record<Perfil, string[] | "*"> = {
   admin: "*",
   gerente: "*",
-  consultor: ["dashboard", "empresas", "pipeline", "scoring", "atividades", "orcamento", "forecast"],
-  preVenda: ["dashboard", "empresas", "pipeline", "scoring", "atividades", "projetos", "orcamento", "forecast"],
+  consultor: ["dashboard", "empresas", "pipeline", "scoring", "atividades", "orcamento", "forecast", "fcff"],
+  preVenda: ["dashboard", "empresas", "pipeline", "scoring", "atividades", "projetos", "orcamento", "forecast", "fcff"],
 };
 
 const MENU_ITEMS = [
@@ -59,7 +60,8 @@ const MENU_ITEMS = [
       { id: "atividades", label: "Atividades", icon: CheckSquare, href: "/atividades" },
       { id: "projetos", label: "Projetos", icon: FolderOpen, href: "/projetos" },
       { id: "ticket", label: "Ticket Médio", icon: Target, href: "/ticket" },
-      { id: "orcamento", label: "Orçamento", icon: Wallet, href: "/orcamento" },
+      { id: "orcamento", label: "Orçamento",    icon: Wallet,      href: "/orcamento" },
+      { id: "fcff",      label: "FCFF HaaS",    icon: Calculator,  href: "/fcff" },
     ],
   },
   {

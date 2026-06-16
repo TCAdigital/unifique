@@ -4,7 +4,20 @@ import { useEffect, useState } from "react";
 import { Shell } from "@/components/layout/Shell";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn } from "@/lib/utils";
-import { FileBarChart, TrendingUp, Package, DollarSign, Download } from "lucide-react";
+import { FileBarChart, TrendingUp, Package, DollarSign, Download, Building2 } from "lucide-react";
+
+// BU Cyber — constantes fiscais
+const ISS_COFINS = 0.1225;   // ISS 3% + PIS/COFINS 9,25%
+const CREDITO_COMPRA = 0.02775; // Crédito PIS/COFINS sobre compra (9,25% × 30%)
+
+interface NegocioFat {
+  id: string;
+  nome: string;
+  empresa: string;
+  valor: number;
+  vigencia_meses: number;
+  custo_oportunidade: number;
+}
 
 const DADOS_MENSAIS = [
   { mes: "Jan", receita: 380000, custo: 210000, lucro: 170000 },
@@ -30,23 +43,31 @@ const maxReceita = Math.max(...DADOS_MENSAIS.map((d) => d.receita));
 export default function RelatoriosPage() {
   const [receita, setReceita] = useState<number | null>(null);
   const [projetosAtivos, setProjetosAtivos] = useState<number | null>(null);
+  const [negocios, setNegocios] = useState<NegocioFat[]>([]);
 
   useEffect(() => {
     supabase
       .from("negocios")
-      .select("valor")
+      .select("id, nome, valor, vigencia_meses, custo_oportunidade, empresas(nome)")
       .eq("fase", "Ganho")
+      .order("valor", { ascending: false })
       .then(({ data }) => {
-        const total = (data ?? []).reduce((s: number, n: { valor: number }) => s + (n.valor ?? 0), 0);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rows: NegocioFat[] = (data ?? []).map((n: any) => {
+          const emp = Array.isArray(n.empresas) ? n.empresas[0] : n.empresas;
+          return {
+            id: n.id,
+            nome: n.nome,
+            empresa: emp?.nome ?? "—",
+            valor: n.valor ?? 0,
+            vigencia_meses: n.vigencia_meses ?? 0,
+            custo_oportunidade: n.custo_oportunidade ?? 0,
+          };
+        });
+        setNegocios(rows);
+        const total = rows.reduce((s, n) => s + n.valor, 0);
         setReceita(total);
-      });
-
-    supabase
-      .from("negocios")
-      .select("id", { count: "exact", head: true })
-      .eq("fase", "Ganho")
-      .then(({ count }) => {
-        if (count !== null) setProjetosAtivos(count);
+        setProjetosAtivos(rows.length);
       });
   }, []);
 
@@ -160,6 +181,74 @@ export default function RelatoriosPage() {
             ))}
           </div>
         </div>
+
+        {/* Faturamento por Negócio — fórmulas BU Cyber */}
+        {negocios.length > 0 && (() => {
+          const rows = negocios.map(n => {
+            const rb = n.valor * (n.vigencia_meses > 0 ? n.vigencia_meses : 12);
+            const imp = rb * ISS_COFINS;
+            const rl = rb - imp;
+            const cred = n.custo_oportunidade * CREDITO_COMPRA;
+            return { ...n, rb, imp, rl, cred };
+          });
+          const totRb   = rows.reduce((s, r) => s + r.rb,   0);
+          const totImp  = rows.reduce((s, r) => s + r.imp,  0);
+          const totRl   = rows.reduce((s, r) => s + r.rl,   0);
+          const totCred = rows.reduce((s, r) => s + r.cred, 0);
+          return (
+            <div className="glass-card overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-700">Faturamento por Negócio — Contratos Ativos</h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Receita bruta total = Valor/mês × Vigência · ISS 3% + PIS/COFINS 9,25% = 12,25%</p>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs min-w-[800px]">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200">
+                      {["Negócio", "Empresa", "Valor/mês", "Vigência", "Receita Bruta Total", "Imposto (12,25%)", "Receita Líquida", "Crédito Compra"].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rows.map(r => (
+                      <tr key={r.id} className="hover:bg-slate-50 transition-all">
+                        <td className="px-4 py-3 font-bold text-slate-800 max-w-[180px] truncate">{r.nome}</td>
+                        <td className="px-4 py-3 text-slate-500">
+                          <div className="flex items-center gap-1"><Building2 size={10} />{r.empresa}</div>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-unifique-primary tabular-nums">{formatCurrency(r.valor)}</td>
+                        <td className="px-4 py-3 text-slate-500 tabular-nums">
+                          {r.vigencia_meses > 0 ? `${r.vigencia_meses}m` : "12m"}
+                        </td>
+                        <td className="px-4 py-3 font-bold text-slate-700 tabular-nums">{formatCurrency(r.rb)}</td>
+                        <td className="px-4 py-3 text-red-500 tabular-nums">({formatCurrency(r.imp).replace("R$","").trim()})</td>
+                        <td className="px-4 py-3 font-bold text-emerald-600 tabular-nums">{formatCurrency(r.rl)}</td>
+                        <td className="px-4 py-3 text-blue-600 tabular-nums">
+                          {r.cred > 0 ? formatCurrency(r.cred) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-slate-50 font-bold border-t-2 border-slate-300">
+                      <td className="px-4 py-3 text-slate-700">TOTAL</td>
+                      <td className="px-4 py-3 text-slate-400">—</td>
+                      <td className="px-4 py-3 text-unifique-primary tabular-nums">{formatCurrency(negocios.reduce((s,n)=>s+n.valor,0))}</td>
+                      <td className="px-4 py-3 text-slate-400">—</td>
+                      <td className="px-4 py-3 text-slate-700 tabular-nums">{formatCurrency(totRb)}</td>
+                      <td className="px-4 py-3 text-red-500 tabular-nums">({formatCurrency(totImp).replace("R$","").trim()})</td>
+                      <td className="px-4 py-3 text-emerald-600 tabular-nums">{formatCurrency(totRl)}</td>
+                      <td className="px-4 py-3 text-blue-600 tabular-nums">{totCred > 0 ? formatCurrency(totCred) : "—"}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Monthly detail table */}
         <div className="glass-card overflow-hidden">
