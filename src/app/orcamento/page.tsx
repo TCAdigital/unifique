@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { Shell } from "@/components/layout/Shell";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn } from "@/lib/utils";
-import type { Orcamento, Empresa } from "@/types";
+import type { Orcamento, Empresa, Negocio } from "@/types";
 import {
   Wallet,
   Plus,
@@ -60,6 +60,8 @@ interface FormData {
   periodo: string;
   empresa_id: string;
   empresa_nome: string;
+  negocio_id: string;
+  negocio_nome: string;
 }
 
 const EMPTY_FORM: FormData = {
@@ -71,12 +73,15 @@ const EMPTY_FORM: FormData = {
   periodo: PERIODOS[0],
   empresa_id: "",
   empresa_nome: "",
+  negocio_id: "",
+  negocio_nome: "",
 };
 
 export default function OrcamentoPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<Orcamento[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [negocios, setNegocios] = useState<Pick<Negocio, 'id' | 'nome'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -91,6 +96,9 @@ export default function OrcamentoPage() {
   useEffect(() => {
     supabase.from('empresas').select('id, nome').order('nome').then(({ data }) => {
       if (data) setEmpresas(data as any);
+    });
+    supabase.from('negocios').select('id, nome').order('nome').then(({ data }) => {
+      if (data) setNegocios(data as any);
     });
   }, []);
 
@@ -107,7 +115,12 @@ export default function OrcamentoPage() {
 
   function handleEmpresaChange(empresaId: string) {
     const emp = empresas.find(e => e.id === empresaId);
-    setForm(f => ({ ...f, empresa_id: empresaId, empresa_nome: emp?.nome ?? '' }));
+    setForm(f => ({ ...f, empresa_id: empresaId, empresa_nome: emp?.nome ?? '', negocio_id: '', negocio_nome: '' }));
+  }
+
+  function handleNegocioChange(negocioId: string) {
+    const neg = negocios.find(n => n.id === negocioId);
+    setForm(f => ({ ...f, negocio_id: negocioId, negocio_nome: neg?.nome ?? '', empresa_id: '', empresa_nome: '' }));
   }
 
   async function handleSave() {
@@ -124,6 +137,8 @@ export default function OrcamentoPage() {
       status: form.status,
       empresa_id: form.empresa_id || null,
       empresa_nome: form.empresa_nome || null,
+      negocio_id: form.negocio_id || null,
+      negocio_nome: form.negocio_nome || null,
     });
     setSaving(false);
     if (error) { setErro('Erro ao salvar: ' + error.message); return; }
@@ -225,14 +240,31 @@ export default function OrcamentoPage() {
             <h3 className="font-bold text-sm mb-4 text-unifique-primary">Novo Item de Orçamento</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5">Empresa</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">
+                  Empresa {form.negocio_id && <span className="text-slate-400 font-normal">(pipeline selecionado — limpe para usar empresa)</span>}
+                </label>
                 <select
                   value={form.empresa_id}
                   onChange={(e) => handleEmpresaChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 rounded-lg text-sm bg-white dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-unifique-primary/30"
+                  disabled={!!form.negocio_id}
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 rounded-lg text-sm bg-white dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-unifique-primary/30 disabled:opacity-50"
                 >
                   <option value="">— Sem empresa vinculada —</option>
                   {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">
+                  Negócio (Pipeline) {form.empresa_id && <span className="text-slate-400 font-normal">(empresa selecionada — limpe para usar pipeline)</span>}
+                </label>
+                <select
+                  value={form.negocio_id}
+                  onChange={(e) => handleNegocioChange(e.target.value)}
+                  disabled={!!form.empresa_id}
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 rounded-lg text-sm bg-white dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-unifique-primary/30 disabled:opacity-50"
+                >
+                  <option value="">— Sem negócio vinculado —</option>
+                  {negocios.map(n => <option key={n.id} value={n.id}>{n.nome}</option>)}
                 </select>
               </div>
               <div>
@@ -346,8 +378,10 @@ export default function OrcamentoPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm truncate">{item.descricao}</p>
-                      {item.empresa_nome && (
-                        <p className="text-[11px] text-unifique-primary font-medium truncate">{item.empresa_nome}</p>
+                      {(item.empresa_nome || item.negocio_nome) && (
+                        <p className="text-[11px] text-unifique-primary font-medium truncate">
+                          {item.negocio_nome ? `Pipeline: ${item.negocio_nome}` : item.empresa_nome}
+                        </p>
                       )}
                       <div className="w-full h-1.5 bg-slate-100 dark:bg-white/10 rounded-full mt-1.5 max-w-[200px]">
                         <div

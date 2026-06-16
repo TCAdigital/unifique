@@ -28,13 +28,23 @@ const margemMedia = Math.round((totalLucro / totalReceita) * 100);
 const maxReceita = Math.max(...DADOS_MENSAIS.map((d) => d.receita));
 
 export default function RelatoriosPage() {
+  const [receita, setReceita] = useState<number | null>(null);
   const [projetosAtivos, setProjetosAtivos] = useState<number | null>(null);
 
   useEffect(() => {
     supabase
       .from("negocios")
+      .select("valor")
+      .eq("fase", "Ganho")
+      .then(({ data }) => {
+        const total = (data ?? []).reduce((s: number, n: { valor: number }) => s + (n.valor ?? 0), 0);
+        setReceita(total);
+      });
+
+    supabase
+      .from("negocios")
       .select("id", { count: "exact", head: true })
-      .in("fase", ["Fechamento", "Contrato"])
+      .eq("fase", "Ganho")
       .then(({ count }) => {
         if (count !== null) setProjetosAtivos(count);
       });
@@ -62,12 +72,17 @@ export default function RelatoriosPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[
-            { label: "Receita Acumulada", value: formatCurrency(totalReceita), icon: TrendingUp, color: "text-unifique-primary", bg: "bg-unifique-primary/10" },
-            { label: "Lucro Acumulado", value: formatCurrency(totalLucro), icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50" },
-            { label: "Margem Média", value: `${margemMedia}%`, icon: FileBarChart, color: margemMedia >= 40 ? "text-emerald-600" : "text-amber-600", bg: "bg-slate-50" },
-            { label: "Projetos Ativos", value: projetosAtivos !== null ? String(projetosAtivos) : "—", icon: Package, color: "text-blue-600", bg: "bg-blue-50" },
-          ].map((k) => (
+          {(() => {
+            const receitaReal = receita ?? 0;
+            const lucroReal = receitaReal * 0.8775;
+            const margemReal = receitaReal > 0 ? Math.round((lucroReal / receitaReal) * 100) : 0;
+            return [
+              { label: "Receita Acumulada (Ganhos)", value: receita !== null ? formatCurrency(receitaReal) : "—", icon: TrendingUp, color: "text-unifique-primary", bg: "bg-unifique-primary/10" },
+              { label: "ROL (Lucro Operacional)", value: receita !== null ? formatCurrency(lucroReal) : "—", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50" },
+              { label: "Margem ROL", value: receita !== null ? `${margemReal}%` : "—", icon: FileBarChart, color: margemReal >= 40 ? "text-emerald-600" : "text-amber-600", bg: "bg-slate-50" },
+              { label: "Projetos Ativos (Ganhos)", value: projetosAtivos !== null ? String(projetosAtivos) : "—", icon: Package, color: "text-blue-600", bg: "bg-blue-50" },
+            ];
+          })().map((k) => (
             <div key={k.label} className="glass-card p-5 flex items-center gap-4">
               <div className={cn("p-3 rounded-xl flex-shrink-0", k.bg)}>
                 <k.icon size={20} className={k.color} />

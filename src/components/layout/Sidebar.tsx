@@ -34,6 +34,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+type Perfil = "admin" | "gerente" | "consultor" | "preVenda";
+
+const ROLE_ALLOWED: Record<Perfil, string[] | "*"> = {
+  admin: "*",
+  gerente: "*",
+  consultor: ["dashboard", "empresas", "pipeline", "scoring", "atividades", "orcamento", "forecast"],
+  preVenda: ["dashboard", "empresas", "pipeline", "scoring", "atividades", "projetos", "orcamento", "forecast"],
+};
+
 const MENU_ITEMS = [
   {
     group: "HOME",
@@ -136,7 +145,12 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 space-y-5 mt-2 pb-4">
-        {MENU_ITEMS.map((group) => (
+        {MENU_ITEMS.map((group) => {
+          const perfil = (user?.perfil ?? "consultor") as Perfil;
+          const allowed = ROLE_ALLOWED[perfil] ?? ROLE_ALLOWED.consultor;
+          const visibleItems = allowed === "*" ? group.items : group.items.filter(i => (allowed as string[]).includes(i.id));
+          if (visibleItems.length === 0) return null;
+          return (
           <div key={group.group} className="space-y-0.5">
             {isOpen && (
               <p className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7A9BB8" }}>
@@ -144,7 +158,7 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
               </p>
             )}
             {!isOpen && <div className="border-t border-white/5 mx-2 my-2" />}
-            {group.items.map((item) => {
+            {visibleItems.map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;
               return (
@@ -178,7 +192,8 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* User Footer */}

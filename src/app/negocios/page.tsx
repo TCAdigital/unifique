@@ -63,6 +63,10 @@ const BLANK_FORM = {
   responsavel: '',
   especialista_nome: '',
   produtos: [] as string[],
+  link_proposta: '',
+  custo_oportunidade: '0',
+  custo_cliente: '0',
+  vigencia_meses: '0',
 };
 
 function negocioToForm(n: Negocio) {
@@ -79,6 +83,10 @@ function negocioToForm(n: Negocio) {
     responsavel: n.responsavel ?? '',
     especialista_nome: n.especialista_nome ?? '',
     produtos: Array.isArray(n.produtos) ? [...n.produtos] : [],
+    link_proposta: n.link_proposta ?? '',
+    custo_oportunidade: String(n.custo_oportunidade ?? 0),
+    custo_cliente: String(n.custo_cliente ?? 0),
+    vigencia_meses: String(n.vigencia_meses ?? 0),
   };
 }
 
@@ -150,10 +158,12 @@ export default function NegociosPage() {
     setSaving(true);
     setErro('');
 
+    const vigencia = parseInt(form.vigencia_meses) || 0;
+    const valor = parseFloat(form.valor) || 0;
     const payload = {
       nome: form.nome.trim(),
       empresa_id: form.empresa_id,
-      valor: parseFloat(form.valor) || 0,
+      valor,
       fase: form.fase,
       probabilidade: parseInt(form.probabilidade) || 0,
       curva: form.curva,
@@ -163,6 +173,10 @@ export default function NegociosPage() {
       responsavel: form.responsavel || null,
       especialista_nome: form.especialista_nome || null,
       produtos: form.produtos,
+      link_proposta: form.link_proposta || null,
+      custo_oportunidade: parseFloat(form.custo_oportunidade) || 0,
+      custo_cliente: parseFloat(form.custo_cliente) || 0,
+      vigencia_meses: vigencia,
     };
 
     let error;
@@ -534,6 +548,54 @@ export default function NegociosPage() {
                           {usuarios.map(u => <option key={u.id} value={u.nome}>{u.nome}</option>)}
                         </select>
                       </label>
+                    </div>
+                  </div>
+
+                  {/* Proposta & Financeiro */}
+                  <div className="border-t border-slate-100 pt-4">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Proposta & Financeiro</p>
+
+                    <label className="block mb-3">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Link da Proposta</span>
+                      <input type="url" value={form.link_proposta} onChange={e => setForm(f => ({ ...f, link_proposta: e.target.value }))}
+                        placeholder="https://..."
+                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <label className="block">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Custo Oportunidade (R$)</span>
+                        <input type="number" min="0" value={form.custo_oportunidade} onChange={e => setForm(f => ({ ...f, custo_oportunidade: e.target.value }))}
+                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Custo Cliente (R$)</span>
+                        <input type="number" min="0" value={form.custo_cliente} onChange={e => setForm(f => ({ ...f, custo_cliente: e.target.value }))}
+                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Vigência do Contrato</span>
+                        <select value={form.vigencia_meses} onChange={e => setForm(f => ({ ...f, vigencia_meses: e.target.value }))}
+                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white">
+                          <option value="0">— Sem vigência —</option>
+                          <option value="12">12 meses</option>
+                          <option value="24">24 meses</option>
+                          <option value="36">36 meses</option>
+                          <option value="40">40 meses</option>
+                          <option value="48">48 meses</option>
+                        </select>
+                      </label>
+                      <div>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Contrato Global</span>
+                        <div className="mt-1 w-full px-3 py-2 border border-slate-100 bg-slate-50 rounded-lg text-sm font-bold text-unifique-primary">
+                          {(parseFloat(form.valor) || 0) * (parseInt(form.vigencia_meses) || 0) > 0
+                            ? `R$ ${((parseFloat(form.valor) || 0) * (parseInt(form.vigencia_meses) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                            : '—'}
+                        </div>
+                      </div>
                     </div>
                   </div>
 

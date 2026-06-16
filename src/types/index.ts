@@ -38,6 +38,11 @@ export interface Negocio {
   responsavel?: string;
   especialista_nome?: string;
   produtos?: string[];
+  link_proposta?: string;
+  custo_oportunidade?: number;
+  custo_cliente?: number;
+  vigencia_meses?: number;
+  projeto_fase?: string;
   created_at: string;
   updated_at?: string;
   empresas?: { nome: string };
@@ -84,6 +89,8 @@ export interface Orcamento {
   status: 'Planejado' | 'Executado' | 'Pendente' | 'Cancelado';
   empresa_id?: string;
   empresa_nome?: string;
+  negocio_id?: string;
+  negocio_nome?: string;
   created_at: string;
 }
 

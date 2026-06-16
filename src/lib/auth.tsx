@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 interface AuthUser {
   id: string;
@@ -17,21 +18,6 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
-
-const USERS: Record<string, { password: string; user: AuthUser }> = {
-  "tadeu.alves@redeunifique.com.br": {
-    password: "unifique@2026",
-    user: { id: "a1000000-0000-0000-0000-000000000001", nome: "Tadeu Alves", email: "tadeu.alves@redeunifique.com.br", perfil: "admin", avatar: "TA" },
-  },
-  "maria.souza@redeunifique.com.br": {
-    password: "unifique@2026",
-    user: { id: "a1000000-0000-0000-0000-000000000002", nome: "Maria Souza", email: "maria.souza@redeunifique.com.br", perfil: "gerente", avatar: "MS" },
-  },
-  "joao.silva@redeunifique.com.br": {
-    password: "unifique@2026",
-    user: { id: "a1000000-0000-0000-0000-000000000003", nome: "João Silva", email: "joao.silva@redeunifique.com.br", perfil: "consultor", avatar: "JS" },
-  },
-};
 
 const AUTH_KEY = "unifique_auth_user";
 
@@ -67,10 +53,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, loading, pathname, router]);
 
   async function login(email: string, password: string): Promise<boolean> {
-    const entry = USERS[email.toLowerCase()];
-    if (!entry || entry.password !== password) return false;
-    localStorage.setItem(AUTH_KEY, JSON.stringify(entry.user));
-    setUser(entry.user);
+    const { data, error } = await supabase
+      .from("usuarios")
+      .select("id, nome, email, perfil, avatar, ativo, password_hash")
+      .eq("email", email.toLowerCase().trim())
+      .eq("ativo", true)
+      .single();
+
+    if (error || !data) return false;
+    if (data.password_hash !== password) return false;
+
+    const authUser: AuthUser = {
+      id: data.id,
+      nome: data.nome,
+      email: data.email,
+      perfil: data.perfil as AuthUser["perfil"],
+      avatar: data.avatar ?? data.nome.slice(0, 2).toUpperCase(),
+    };
+
+    localStorage.setItem(AUTH_KEY, JSON.stringify(authUser));
+    setUser(authUser);
     router.replace("/");
     return true;
   }

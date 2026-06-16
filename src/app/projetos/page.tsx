@@ -7,233 +7,217 @@ import { formatCurrency, cn } from "@/lib/utils";
 import type { Negocio } from "@/types";
 import {
   FolderOpen,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
   Loader2,
-  BarChart3,
-  Calendar,
   Building2,
+  DollarSign,
+  ChevronRight,
+  ArrowRight,
 } from "lucide-react";
+import { motion } from "framer-motion";
 
-interface Projeto {
+const FASES_PROJETO = [
+  { id: "Compras",     color: "bg-amber-400",   border: "border-amber-200",  label_bg: "bg-amber-50 text-amber-700"  },
+  { id: "Implantação", color: "bg-blue-500",    border: "border-blue-200",   label_bg: "bg-blue-50 text-blue-700"   },
+  { id: "Concluído",   color: "bg-emerald-500", border: "border-emerald-200",label_bg: "bg-emerald-50 text-emerald-700"},
+  { id: "Pós Vendas",  color: "bg-purple-500",  border: "border-purple-200", label_bg: "bg-purple-50 text-purple-700"},
+] as const;
+
+type FaseProjeto = (typeof FASES_PROJETO)[number]["id"];
+
+interface Cartao {
   id: string;
   nome: string;
   empresa: string;
   valor: number;
-  status: "Em andamento" | "Concluído" | "Atrasado" | "Em pausa";
-  progresso: number;
-  inicio?: string;
-  previsao?: string;
-  responsavel?: string;
+  contrato_global: number;
+  produtos: string[];
+  projeto_fase: FaseProjeto;
+  vigencia_meses: number;
 }
 
-const STATUS_CONFIG = {
-  "Em andamento": { color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800", icon: Clock },
-  "Concluído": { color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800", icon: CheckCircle2 },
-  "Atrasado": { color: "text-red-500 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800", icon: AlertCircle },
-  "Em pausa": { color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800", icon: Clock },
-};
-
-function statusFromNegocio(n: Negocio): Projeto["status"] {
-  if (n.fase === "Contrato" && n.probabilidade >= 90) return "Concluído";
-  if (n.prev_fechamento && new Date(n.prev_fechamento) < new Date() && n.probabilidade < 90) return "Atrasado";
-  return "Em andamento";
-}
-
-function buildProjetosFromNegocios(negocios: Negocio[]): Projeto[] {
-  return negocios.map((n) => ({
+function buildCartao(n: Negocio): Cartao {
+  const valor = n.valor ?? 0;
+  const vigencia = n.vigencia_meses ?? 0;
+  return {
     id: n.id,
     nome: n.nome,
     empresa: n.empresas?.nome ?? "—",
-    valor: n.valor,
-    status: statusFromNegocio(n),
-    progresso: Math.min(n.probabilidade, 100),
-    inicio: n.created_at?.slice(0, 10),
-    previsao: n.prev_fechamento,
-  }));
+    valor,
+    contrato_global: valor * vigencia,
+    produtos: Array.isArray(n.produtos) ? n.produtos : [],
+    projeto_fase: (n.projeto_fase as FaseProjeto) || "Compras",
+    vigencia_meses: vigencia,
+  };
 }
 
 export default function ProjetosPage() {
-  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtro, setFiltro] = useState<"Todos" | "Em andamento" | "Concluído" | "Atrasado" | "Em pausa">("Todos");
+  const [movendo, setMovendo] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      const { data } = await supabase
-        .from("negocios")
-        .select("*, empresas(nome)")
-        .in("fase", ["Contrato", "Fechamento"])
-        .order("updated_at", { ascending: false });
-      setProjetos(buildProjetosFromNegocios((data as Negocio[]) ?? []));
-      setLoading(false);
-    }
-    load();
-  }, []);
+  async function load() {
+    setLoading(true);
+    const { data } = await supabase
+      .from("negocios")
+      .select("*, empresas(nome)")
+      .eq("fase", "Ganho")
+      .order("valor", { ascending: false });
+    setCartoes(((data as Negocio[]) ?? []).map(buildCartao));
+    setLoading(false);
+  }
 
-  const filtered = filtro === "Todos" ? projetos : projetos.filter((p) => p.status === filtro);
+  useEffect(() => { load(); }, []);
 
-  const counts = {
-    total: projetos.length,
-    andamento: projetos.filter((p) => p.status === "Em andamento").length,
-    concluido: projetos.filter((p) => p.status === "Concluído").length,
-    atrasado: projetos.filter((p) => p.status === "Atrasado").length,
-  };
+  async function moverFase(id: string, novaFase: FaseProjeto) {
+    setMovendo(id);
+    await supabase.from("negocios").update({ projeto_fase: novaFase }).eq("id", id);
+    setCartoes(prev => prev.map(c => c.id === id ? { ...c, projeto_fase: novaFase } : c));
+    setMovendo(null);
+  }
 
-  const totalValor = projetos.reduce((s, p) => s + p.valor, 0);
+  function proximaFase(atual: FaseProjeto): FaseProjeto | null {
+    const idx = FASES_PROJETO.findIndex(f => f.id === atual);
+    return idx < FASES_PROJETO.length - 1 ? FASES_PROJETO[idx + 1].id : null;
+  }
+
+  const totalValor = cartoes.reduce((s, c) => s + c.valor, 0);
+  const totalContrato = cartoes.reduce((s, c) => s + c.contrato_global, 0);
 
   return (
     <Shell>
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white font-outfit">
-            Projetos
-          </h1>
-          <p className="text-slate-500 mt-1">
-            Acompanhamento de entregas pós-venda — negócios em fase de Contrato ou Fechamento.
-          </p>
-        </div>
-
-        {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: "Total de Projetos", value: counts.total, icon: FolderOpen, color: "text-unifique-primary", bg: "bg-unifique-primary/10" },
-            { label: "Em Andamento", value: counts.andamento, icon: Clock, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
-            { label: "Concluídos", value: counts.concluido, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-            { label: "Atrasados", value: counts.atrasado, icon: AlertCircle, color: "text-red-500", bg: "bg-red-50 dark:bg-red-900/20" },
-          ].map((k) => (
-            <div key={k.label} className="glass-card p-5 flex items-center gap-3">
-              <div className={cn("p-2.5 rounded-xl flex-shrink-0", k.bg)}>
-                <k.icon size={18} className={k.color} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">{k.label}</p>
-                <p className={cn("text-xl font-bold font-outfit", k.color)}>{loading ? "—" : k.value}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Volume total */}
-        {!loading && totalValor > 0 && (
-          <div className="glass-card p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-unifique-primary/10">
-              <BarChart3 size={20} className="text-unifique-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">Volume total em projetos</p>
-              <p className="text-2xl font-bold font-outfit text-unifique-primary">{formatCurrency(totalValor)}</p>
-            </div>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold font-outfit text-slate-900">Projetos</h1>
+            <p className="text-sm text-slate-500">Pipeline de implantação — negócios ganhos.</p>
           </div>
-        )}
-
-        {/* Filter */}
-        <div className="flex gap-2 flex-wrap">
-          {(["Todos", "Em andamento", "Concluído", "Atrasado", "Em pausa"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFiltro(f)}
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-bold transition-all",
-                filtro === f
-                  ? "bg-unifique-primary text-white shadow-md"
-                  : "bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-unifique-primary/40"
-              )}
-            >
-              {f}
-            </button>
-          ))}
+          <div className="flex gap-4">
+            <div className="glass-card px-4 py-2 flex items-center gap-2">
+              <DollarSign size={14} className="text-unifique-primary" />
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Receita Mensal</p>
+                <p className="text-sm font-bold text-unifique-primary">{formatCurrency(totalValor)}</p>
+              </div>
+            </div>
+            {totalContrato > 0 && (
+              <div className="glass-card px-4 py-2 flex items-center gap-2">
+                <FolderOpen size={14} className="text-purple-600" />
+                <div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Contrato Global</p>
+                  <p className="text-sm font-bold text-purple-600">{formatCurrency(totalContrato)}</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Cards grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-slate-400">
+          <div className="flex items-center justify-center py-20 text-slate-400">
             <Loader2 size={28} className="animate-spin" />
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="glass-card flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
-            <FolderOpen size={36} />
-            <p className="text-sm font-medium">Nenhum projeto encontrado.</p>
+        ) : cartoes.length === 0 ? (
+          <div className="glass-card flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+            <FolderOpen size={40} />
+            <p className="text-sm font-medium">Nenhum negócio ganho ainda.</p>
             <p className="text-xs text-slate-400 max-w-xs text-center">
-              Projetos são gerados automaticamente a partir de negócios nas fases Fechamento e Contrato.
+              Quando um negócio do pipeline for marcado como "Ganho", ele aparecerá aqui para acompanhamento da implantação.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map((p) => {
-              const cfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG["Em andamento"];
-              const StIcon = cfg.icon;
+          <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 min-h-[500px]">
+            {FASES_PROJETO.map((fase) => {
+              const itens = cartoes.filter(c => c.projeto_fase === fase.id);
+              const totalFase = itens.reduce((s, c) => s + c.valor, 0);
               return (
-                <div
-                  key={p.id}
-                  className="glass-card p-5 hover:translate-y-[-2px] transition-all duration-200"
-                >
-                  {/* Status badge */}
-                  <div className="flex items-center justify-between mb-3">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border",
-                        cfg.bg,
-                        cfg.color
-                      )}
-                    >
-                      <StIcon size={11} />
-                      {p.status}
-                    </span>
-                    <span className="text-xs font-bold text-unifique-primary">
-                      {formatCurrency(p.valor)}
-                    </span>
+                <div key={fase.id} className="flex-shrink-0 w-72 flex flex-col gap-3">
+                  {/* Column header */}
+                  <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-2.5 h-2.5 rounded-full", fase.color)} />
+                      <h2 className="font-bold text-xs text-slate-700 uppercase tracking-wider">{fase.id}</h2>
+                      <span className="bg-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full text-slate-500">{itens.length}</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400">{formatCurrency(totalFase)}</span>
                   </div>
 
-                  {/* Name */}
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1 line-clamp-2">
-                    {p.nome}
-                  </h3>
+                  {/* Column body */}
+                  <div className={cn(
+                    "flex-1 space-y-3 p-2 rounded-2xl border border-dashed min-h-[200px]",
+                    fase.border,
+                    "bg-slate-50/50"
+                  )}>
+                    {itens.length === 0 && (
+                      <div className="h-20 flex items-center justify-center">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vazio</p>
+                      </div>
+                    )}
+                    {itens.map((c, idx) => {
+                      const prox = proximaFase(c.projeto_fase);
+                      return (
+                        <motion.div
+                          key={c.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.04 }}
+                          className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-unifique-primary/40 transition-all"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                              <Building2 size={10} />
+                              <span className="truncate max-w-[140px]">{c.empresa}</span>
+                            </div>
+                            <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", fase.label_bg)}>{fase.id}</span>
+                          </div>
 
-                  {/* Company */}
-                  <div className="flex items-center gap-1.5 mb-4">
-                    <Building2 size={12} className="text-slate-400 flex-shrink-0" />
-                    <span className="text-xs text-slate-500 truncate">{p.empresa}</span>
+                          <h3 className="font-bold text-sm text-slate-900 mb-2 leading-snug">{c.nome}</h3>
+
+                          {c.produtos.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {c.produtos.slice(0, 2).map(p => (
+                                <span key={p} className="text-[9px] font-bold px-1.5 py-0.5 bg-unifique-primary/10 text-unifique-primary rounded">{p}</span>
+                              ))}
+                              {c.produtos.length > 2 && (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded">+{c.produtos.length - 2}</span>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                            <div>
+                              <p className="text-[10px] text-slate-400">Valor/mês</p>
+                              <p className="text-xs font-bold text-slate-800">{formatCurrency(c.valor)}</p>
+                            </div>
+                            {c.contrato_global > 0 && (
+                              <div className="text-right">
+                                <p className="text-[10px] text-slate-400">Contrato global</p>
+                                <p className="text-xs font-bold text-purple-600">{formatCurrency(c.contrato_global)}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {prox && (
+                            <button
+                              onClick={() => moverFase(c.id, prox)}
+                              disabled={movendo === c.id}
+                              className="mt-3 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-slate-200 text-[11px] font-bold text-slate-400 hover:border-unifique-primary hover:text-unifique-primary transition-all disabled:opacity-50"
+                            >
+                              {movendo === c.id
+                                ? <Loader2 size={12} className="animate-spin" />
+                                : <ArrowRight size={12} />}
+                              Mover para {prox}
+                            </button>
+                          )}
+                          {!prox && (
+                            <div className="mt-3 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-600">
+                              <ChevronRight size={12} />
+                              Pós Vendas completo
+                            </div>
+                          )}
+                        </motion.div>
+                      );
+                    })}
                   </div>
-
-                  {/* Progress */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[11px] text-slate-500 font-medium">Progresso</span>
-                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                        {p.progresso}%
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all duration-700",
-                          p.progresso >= 100 ? "bg-emerald-500" :
-                          p.status === "Atrasado" ? "bg-red-500" :
-                          "bg-unifique-primary"
-                        )}
-                        style={{ width: `${Math.min(p.progresso, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Dates */}
-                  {(p.inicio || p.previsao) && (
-                    <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100 dark:border-white/5">
-                      <Calendar size={12} className="text-slate-400 flex-shrink-0" />
-                      <span className="text-[10px] text-slate-400">
-                        {p.inicio
-                          ? `Início: ${new Date(p.inicio).toLocaleDateString("pt-BR")}`
-                          : ""}
-                        {p.inicio && p.previsao ? " · " : ""}
-                        {p.previsao
-                          ? `Previsão: ${new Date(p.previsao).toLocaleDateString("pt-BR")}`
-                          : ""}
-                      </span>
-                    </div>
-                  )}
                 </div>
               );
             })}
