@@ -110,18 +110,24 @@ export default function OrcamentoPage() {
     setLoading(true);
     setErro('');
     const isAdmin = user?.perfil === 'admin';
-    let query = supabase
+    const { data, error } = await supabase
       .from("orcamentos")
       .select("*")
-      .eq("periodo", `${periodoFiltro}-01`)
       .order("created_at", { ascending: false });
-    if (!isAdmin && user) query = query.eq('consultor_id', user.id);
-    const { data, error } = await query;
     if (error) {
       console.error('orcamentos loadData error:', error.message);
       setErro(`Erro ao carregar: ${error.message}`);
+      setItems([]);
+      setLoading(false);
+      return;
     }
-    setItems((data as Orcamento[]) ?? []);
+    const todos = (data ?? []) as Orcamento[];
+    const filtrados = todos.filter(item => {
+      const matchPeriodo = (item.periodo ?? '').startsWith(periodoFiltro);
+      const matchUser = isAdmin || !user || item.consultor_id === user.id;
+      return matchPeriodo && matchUser;
+    });
+    setItems(filtrados);
     setLoading(false);
   }
 
