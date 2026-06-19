@@ -19,14 +19,29 @@ interface AuthContextValue {
   logout: () => void;
 }
 
-const AUTH_KEY = "unifique_auth_user";
-
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   login: async () => false,
   logout: () => {},
 });
+
+async function buscarPerfil(email: string): Promise<AuthUser | null> {
+  const { data } = await supabase
+    .from("usuarios")
+    .select("id, nome, email, perfil, avatar")
+    .eq("email", email.toLowerCase().trim())
+    .eq("ativo", true)
+    .single();
+  if (!data) return null;
+  return {
+    id: data.id,
+    nome: data.nome,
+    email: data.email,
+    perfil: data.perfil as AuthUser["perfil"],
+    avatar: data.avatar ?? data.nome.slice(0, 2).toUpperCase(),
+  };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -35,15 +50,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const stored = localStorage.getItem(AUTH_KEY);
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem(AUTH_KEY);
+    // onAuthStateChange dispara INITIAL_SESSION no mount com a sessão atual (se houver).
+    // Supabase gerencia o token internamente — sem localStorage no nosso código.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (session?.user?.email) {
+          const perfil = await buscarPerfil(session.user.email);
+          setUser(perfil);
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    );
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -53,32 +73,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, loading, pathname, router]);
 
   async function login(email: string, password: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .from("usuarios")
-      .select("id, nome, email, perfil, avatar, ativo, password_hash")
-      .eq("email", email.toLowerCase().trim())
-      .eq("ativo", true)
-      .single();
-
-    if (error || !data) return false;
-    if (data.password_hash !== password) return false;
-
-    const authUser: AuthUser = {
-      id: data.id,
-      nome: data.nome,
-      email: data.email,
-      perfil: data.perfil as AuthUser["perfil"],
-      avatar: data.avatar ?? data.nome.slice(0, 2).toUpperCase(),
-    };
-
-    localStorage.setItem(AUTH_KEY, JSON.stringify(authUser));
-    setUser(authUser);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return false;
+    const perfil = await buscarPerfil(email);
+    if (!perfil) {
+      await supabase.auth.signOut();
+      return false;
+    }
+    setUser(perfil);
     router.replace("/");
     return true;
   }
 
   function logout() {
-    localStorage.removeItem(AUTH_KEY);
+    supabase.auth.signOut();
     setUser(null);
     router.replace("/login");
   }
