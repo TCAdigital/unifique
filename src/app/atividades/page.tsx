@@ -87,7 +87,10 @@ export default function AtividadesPage() {
   async function fetchTarefas() {
     let query = supabase.from('tarefas').select('*').order('prazo', { ascending: true });
     if (filter !== 'Todas') query = query.eq('status', filter);
-    if (!isAdmin && user) query = query.or(`responsavel_id.eq.${user.id},responsavel.eq.${user.nome}`);
+    if (!isAdmin && user) {
+      const nomeEscapado = user.nome.replace(/"/g, '""');
+      query = query.or(`responsavel_id.eq.${user.id},responsavel.eq."${nomeEscapado}"`);
+    }
     const { data } = await query;
     if (data) setTarefas(data);
     setLoading(false);
