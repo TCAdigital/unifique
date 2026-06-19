@@ -66,7 +66,6 @@ const BLANK_FORM = {
   produtos: [] as string[],
   link_proposta: '',
   custo_oportunidade: '0',
-  custo_cliente: '0',
   vigencia_meses: '0',
 };
 
@@ -86,7 +85,6 @@ function negocioToForm(n: Negocio) {
     produtos: Array.isArray(n.produtos) ? [...n.produtos] : [],
     link_proposta: n.link_proposta ?? '',
     custo_oportunidade: String(n.custo_oportunidade ?? 0),
-    custo_cliente: String(n.custo_cliente ?? 0),
     vigencia_meses: String(n.vigencia_meses ?? 0),
   };
 }
@@ -177,7 +175,6 @@ export default function NegociosPage() {
       produtos: form.produtos,
       link_proposta: form.link_proposta || null,
       custo_oportunidade: parseFloat(form.custo_oportunidade) || 0,
-      custo_cliente: parseFloat(form.custo_cliente) || 0,
       vigencia_meses: vigencia,
     };
 
@@ -573,11 +570,6 @@ export default function NegociosPage() {
                       <label className="block">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Custo Oportunidade (R$)</span>
                         <input type="number" min="0" value={form.custo_oportunidade} onChange={e => setForm(f => ({ ...f, custo_oportunidade: e.target.value }))}
-                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
-                      </label>
-                      <label className="block">
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Custo Cliente (R$)</span>
-                        <input type="number" min="0" value={form.custo_cliente} onChange={e => setForm(f => ({ ...f, custo_cliente: e.target.value }))}
                           className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
                       </label>
                     </div>

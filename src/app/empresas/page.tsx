@@ -7,7 +7,7 @@ import { Empresa } from '@/types';
 import { NotasSection } from '@/components/NotasSection';
 import {
   Plus, Search, Filter, MoreHorizontal, Building2,
-  ArrowUpDown, X, Loader2, Trash2, Pencil,
+  ArrowUpDown, X, Loader2, Trash2, Pencil, TrendingDown,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -63,6 +63,7 @@ export default function EmpresasPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [erro, setErro] = useState('');
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [custoCliente, setCustoCliente] = useState<{ total_gasto: number; total_orcado: number } | null>(null);
 
   async function fetchEmpresas() {
     const { data } = await supabase.from('empresas').select('*').order('nome');
@@ -101,7 +102,20 @@ export default function EmpresasPage() {
     setForm(empresaToForm(e));
     setErro('');
     setConfirmDelete(false);
+    setCustoCliente(null);
     setShowModal(true);
+    supabase
+      .from('orcamentos')
+      .select('gasto, orcamento')
+      .eq('empresa_id', e.id)
+      .then(({ data }) => {
+        if (data) {
+          setCustoCliente({
+            total_gasto: data.reduce((s: number, r: any) => s + (r.gasto || 0), 0),
+            total_orcado: data.reduce((s: number, r: any) => s + (r.orcamento || 0), 0),
+          });
+        }
+      });
   }
 
   async function handleSave() {
@@ -390,6 +404,35 @@ export default function EmpresasPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Custo com este Cliente */}
+                  {editingId && (
+                    <div className="border-t border-slate-100 pt-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingDown size={14} className="text-red-500" />
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Custo com este Cliente</p>
+                      </div>
+                      {custoCliente === null ? (
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <Loader2 size={12} className="animate-spin" />Carregando...
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Total Gasto</p>
+                            <p className="text-sm font-bold text-red-600">{formatCurrency(custoCliente.total_gasto)}</p>
+                          </div>
+                          <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Total Orçado</p>
+                            <p className="text-sm font-bold text-slate-700">{formatCurrency(custoCliente.total_orcado)}</p>
+                          </div>
+                        </div>
+                      )}
+                      {custoCliente && custoCliente.total_gasto === 0 && custoCliente.total_orcado === 0 && (
+                        <p className="text-xs text-slate-400 mt-2">Nenhum orçamento vinculado a esta empresa ainda.</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Notas */}
                   <NotasSection entidadeId={editingId} entidadeTipo="empresas" />
