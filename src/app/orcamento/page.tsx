@@ -90,8 +90,8 @@ export default function OrcamentoPage() {
   const [erro, setErro] = useState('');
 
   useEffect(() => {
-    loadData();
-  }, [periodoFiltro]);
+    if (user !== undefined) loadData();
+  }, [periodoFiltro, user?.id]);
 
   useEffect(() => {
     supabase.from('empresas').select('id, nome').order('nome').then(({ data }) => {
@@ -128,7 +128,7 @@ export default function OrcamentoPage() {
     if (!form.orcamento || parseFloat(form.orcamento) <= 0) { setErro('Informe o valor orçado.'); return; }
     setSaving(true);
     setErro('');
-    const { error } = await supabase.from("orcamentos").insert({
+    const { data: inserido, error } = await supabase.from("orcamentos").insert({
       consultor: user?.nome ?? null,
       consultor_id: user?.id ?? null,
       periodo: `${form.periodo}-01`,
@@ -141,12 +141,12 @@ export default function OrcamentoPage() {
       empresa_nome: form.empresa_nome || null,
       negocio_id: form.negocio_id || null,
       negocio_nome: form.negocio_nome || null,
-    });
+    }).select().single();
     setSaving(false);
     if (error) { setErro('Erro ao salvar: ' + error.message); return; }
+    setItems(prev => [inserido as Orcamento, ...prev]);
     setForm(EMPTY_FORM);
     setShowForm(false);
-    loadData();
   }
 
   const totalOrcado = items.reduce((s, i) => s + i.orcamento, 0);
