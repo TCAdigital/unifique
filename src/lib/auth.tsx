@@ -26,6 +26,10 @@ const AuthContext = createContext<AuthContextValue>({
   logout: () => {},
 });
 
+// Só o e-mail fica no localStorage como token de sessão.
+// O perfil completo é sempre buscado do banco.
+const SESSION_KEY = "unifique_session";
+
 async function buscarPerfil(email: string): Promise<AuthUser | null> {
   const { data } = await supabase
     .from("usuarios")
@@ -50,20 +54,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    // onAuthStateChange dispara INITIAL_SESSION no mount com a sessão atual (se houver).
-    // Supabase gerencia o token internamente — sem localStorage no nosso código.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user?.email) {
-          const perfil = await buscarPerfil(session.user.email);
-          setUser(perfil);
-        } else {
-          setUser(null);
-        }
+    const sessionEmail = localStorage.getItem(SESSION_KEY);
+    if (sessionEmail) {
+      // Perfil sempre vem do banco — se o usuário for desativado, sai automaticamente
+      buscarPerfil(sessionEmail).then((perfil) => {
+        setUser(perfil);
         setLoading(false);
-      }
-    );
-    return () => subscription.unsubscribe();
+      });
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -73,20 +73,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, loading, pathname, router]);
 
   async function login(email: string, password: string): Promise<boolean> {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return false;
-    const perfil = await buscarPerfil(email);
-    if (!perfil) {
-      await supabase.auth.signOut();
-      return false;
-    }
+    const { data, error } = await supabase
+      .from("usuarios")
+      .select("id, nome, email, perfil, avatar, password_hash")
+      .eq("email", email.toLowerCase().trim())
+      .eq("ativo", true)
+      .single();
+
+    if (error || !data) return false;
+    if (data.password_hash !== password) return false;
+
+    const perfil: AuthUser = {
+      id: data.id,
+      nome: data.nome,
+      email: data.email,
+      perfil: data.perfil as AuthUser["perfil"],
+      avatar: data.avatar ?? data.nome.slice(0, 2).toUpperCase(),
+    };
+
+    localStorage.setItem(SESSION_KEY, data.email);
     setUser(perfil);
     router.replace("/");
     return true;
   }
 
   function logout() {
-    supabase.auth.signOut();
+    localStorage.removeItem(SESSION_KEY);
     setUser(null);
     router.replace("/login");
   }
