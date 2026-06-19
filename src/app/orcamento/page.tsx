@@ -80,7 +80,7 @@ const EMPTY_FORM: FormData = {
 };
 
 export default function OrcamentoPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState<Orcamento[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [negocios, setNegocios] = useState<Pick<Negocio, 'id' | 'nome'>[]>([]);
@@ -94,8 +94,8 @@ export default function OrcamentoPage() {
   const [erro, setErro] = useState('');
 
   useEffect(() => {
-    if (user !== undefined) loadData();
-  }, [periodoFiltro, user?.id]);
+    if (!authLoading) loadData();
+  }, [periodoFiltro, authLoading, user?.id]);
 
   useEffect(() => {
     supabase.from('empresas').select('id, nome').order('nome').then(({ data }) => {
@@ -110,7 +110,7 @@ export default function OrcamentoPage() {
     setLoading(true);
     const isAdmin = user?.perfil === 'admin';
     let query = supabase.from("orcamentos").select("*").like("periodo", `${periodoFiltro}%`).order("created_at", { ascending: false });
-    if (!isAdmin && user) query = query.eq('consultor_id', user.id);
+    if (!isAdmin && user) query = query.eq('consultor', user.nome);
     const { data, error } = await query;
     if (error) console.error('orcamentos loadData error:', error.message);
     setItems((data as Orcamento[]) ?? []);
