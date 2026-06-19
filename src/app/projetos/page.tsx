@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Shell } from "@/components/layout/Shell";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 import { formatCurrency, cn } from "@/lib/utils";
 import type { Negocio } from "@/types";
 import {
@@ -12,6 +13,7 @@ import {
   DollarSign,
   ChevronRight,
   ArrowRight,
+  ArrowLeft,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -51,17 +53,17 @@ function buildCartao(n: Negocio): Cartao {
 }
 
 export default function ProjetosPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.perfil === 'admin';
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [loading, setLoading] = useState(true);
   const [movendo, setMovendo] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
-      .from("negocios")
-      .select("*, empresas(nome)")
-      .eq("fase", "Ganho")
-      .order("valor", { ascending: false });
+    let query = supabase.from("negocios").select("*, empresas(nome)").eq("fase", "Ganho").order("valor", { ascending: false });
+    if (!isAdmin && user) query = query.eq('responsavel', user.nome);
+    const { data } = await query;
     setCartoes(((data as Negocio[]) ?? []).map(buildCartao));
     setLoading(false);
   }
@@ -78,6 +80,11 @@ export default function ProjetosPage() {
   function proximaFase(atual: FaseProjeto): FaseProjeto | null {
     const idx = FASES_PROJETO.findIndex(f => f.id === atual);
     return idx < FASES_PROJETO.length - 1 ? FASES_PROJETO[idx + 1].id : null;
+  }
+
+  function anteriorFase(atual: FaseProjeto): FaseProjeto | null {
+    const idx = FASES_PROJETO.findIndex(f => f.id === atual);
+    return idx > 0 ? FASES_PROJETO[idx - 1].id : null;
   }
 
   const totalValor = cartoes.reduce((s, c) => s + c.valor, 0);
@@ -154,6 +161,7 @@ export default function ProjetosPage() {
                     )}
                     {itens.map((c, idx) => {
                       const prox = proximaFase(c.projeto_fase);
+                      const prev = anteriorFase(c.projeto_fase);
                       return (
                         <motion.div
                           key={c.id}
@@ -196,24 +204,36 @@ export default function ProjetosPage() {
                             )}
                           </div>
 
-                          {prox && (
-                            <button
-                              onClick={() => moverFase(c.id, prox)}
-                              disabled={movendo === c.id}
-                              className="mt-3 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-slate-200 text-[11px] font-bold text-slate-400 hover:border-unifique-primary hover:text-unifique-primary transition-all disabled:opacity-50"
-                            >
-                              {movendo === c.id
-                                ? <Loader2 size={12} className="animate-spin" />
-                                : <ArrowRight size={12} />}
-                              Mover para {prox}
-                            </button>
-                          )}
-                          {!prox && (
-                            <div className="mt-3 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-600">
-                              <ChevronRight size={12} />
-                              Pós Vendas completo
-                            </div>
-                          )}
+                          <div className="mt-3 flex flex-col gap-1.5">
+                            {prox && (
+                              <button
+                                onClick={() => moverFase(c.id, prox)}
+                                disabled={movendo === c.id}
+                                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-slate-200 text-[11px] font-bold text-slate-400 hover:border-unifique-primary hover:text-unifique-primary transition-all disabled:opacity-50"
+                              >
+                                {movendo === c.id
+                                  ? <Loader2 size={12} className="animate-spin" />
+                                  : <ArrowRight size={12} />}
+                                Avançar para {prox}
+                              </button>
+                            )}
+                            {!prox && (
+                              <div className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-600">
+                                <ChevronRight size={12} />
+                                Pós Vendas completo
+                              </div>
+                            )}
+                            {prev && (
+                              <button
+                                onClick={() => moverFase(c.id, prev)}
+                                disabled={movendo === c.id}
+                                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-slate-100 text-[10px] font-medium text-slate-300 hover:border-slate-300 hover:text-slate-400 transition-all disabled:opacity-50"
+                              >
+                                <ArrowLeft size={11} />
+                                Voltar para {prev}
+                              </button>
+                            )}
+                          </div>
                         </motion.div>
                       );
                     })}

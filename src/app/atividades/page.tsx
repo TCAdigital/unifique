@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
 import { Tarefa, Empresa } from '@/types';
 import { NotasSection } from '@/components/NotasSection';
 import {
@@ -66,6 +67,8 @@ function tarefaToForm(t: Tarefa) {
 }
 
 export default function AtividadesPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.perfil === 'admin';
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +87,7 @@ export default function AtividadesPage() {
   async function fetchTarefas() {
     let query = supabase.from('tarefas').select('*').order('prazo', { ascending: true });
     if (filter !== 'Todas') query = query.eq('status', filter);
+    if (!isAdmin && user) query = query.or(`responsavel_id.eq.${user.id},responsavel.eq.${user.nome}`);
     const { data } = await query;
     if (data) setTarefas(data);
     setLoading(false);
@@ -147,6 +151,8 @@ export default function AtividadesPage() {
       prazo: form.prazo,
       prioridade: form.prioridade,
       status: editingId ? form.status : 'Pendente' as Tarefa['status'],
+      responsavel: user?.nome ?? null,
+      responsavel_id: user?.id ?? null,
     };
     if (form.empresa_id) {
       payload.empresa_id = form.empresa_id;

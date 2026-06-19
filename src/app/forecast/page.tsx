@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
 import { motion } from 'framer-motion';
 import type { Negocio } from '@/types';
 
@@ -49,20 +50,22 @@ interface FunilItem {
 }
 
 export default function ForecastPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.perfil === 'admin';
   const [cenario, setCenario] = useState<'realista' | 'otimista' | 'pessimista'>('realista');
   const [loading, setLoading] = useState(true);
   const [negocios, setNegocios] = useState<Negocio[]>([]);
 
   useEffect(() => {
-    supabase
-      .from('negocios')
-      .select('*, empresas(nome)')
-      .order('valor', { ascending: false })
-      .then(({ data }) => {
-        setNegocios((data as Negocio[]) ?? []);
-        setLoading(false);
-      });
-  }, []);
+    async function load() {
+      let query = supabase.from('negocios').select('*, empresas(nome)').order('valor', { ascending: false });
+      if (!isAdmin && user) query = query.eq('responsavel', user.nome);
+      const { data } = await query;
+      setNegocios((data as Negocio[]) ?? []);
+      setLoading(false);
+    }
+    load();
+  }, [isAdmin, user]);
 
   function calcForecast(cenario: 'realista' | 'otimista' | 'pessimista'): ForecastData {
     const delta = CENARIO_DELTA[cenario];

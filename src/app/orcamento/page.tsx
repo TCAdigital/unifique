@@ -104,11 +104,10 @@ export default function OrcamentoPage() {
 
   async function loadData() {
     setLoading(true);
-    const { data } = await supabase
-      .from("orcamentos")
-      .select("*")
-      .like("periodo", `${periodoFiltro}%`)
-      .order("created_at", { ascending: false });
+    const isAdmin = user?.perfil === 'admin';
+    let query = supabase.from("orcamentos").select("*").like("periodo", `${periodoFiltro}%`).order("created_at", { ascending: false });
+    if (!isAdmin && user) query = query.or(`consultor_id.eq.${user.id},consultor.eq.${user.nome}`);
+    const { data } = await query;
     setItems((data as Orcamento[]) ?? []);
     setLoading(false);
   }
@@ -124,14 +123,16 @@ export default function OrcamentoPage() {
   }
 
   async function handleSave() {
-    if (!form.descricao || !form.orcamento) return;
+    if (!form.descricao.trim()) { setErro('Informe a descrição do item.'); return; }
+    if (!form.orcamento || parseFloat(form.orcamento) <= 0) { setErro('Informe o valor orçado.'); return; }
     setSaving(true);
     setErro('');
     const { error } = await supabase.from("orcamentos").insert({
       consultor: user?.nome ?? null,
+      consultor_id: user?.id ?? null,
       periodo: `${form.periodo}-01`,
       categoria: form.categoria,
-      descricao: form.descricao,
+      descricao: form.descricao.trim(),
       orcamento: parseFloat(form.orcamento) || 0,
       gasto: parseFloat(form.gasto) || 0,
       status: form.status,
@@ -238,6 +239,9 @@ export default function OrcamentoPage() {
         {showForm && (
           <div className="glass-card p-6 border-2 border-unifique-primary/20">
             <h3 className="font-bold text-sm mb-4 text-unifique-primary">Novo Item de Orçamento</h3>
+            {erro && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg font-medium">{erro}</div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">

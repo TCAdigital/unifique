@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Shell } from "@/components/layout/Shell";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 import { formatCurrency, cn } from "@/lib/utils";
 import type { Negocio } from "@/types";
 import {
@@ -42,15 +43,16 @@ function gerarRecomendacao(tm: number, cplPct: number): string {
 }
 
 export default function TicketPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.perfil === 'admin';
   const [stats, setStats] = useState<TicketStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("negocios")
-        .select("*, empresas(nome, segmento)")
-        .order("valor", { ascending: false });
+      let query = supabase.from("negocios").select("*, empresas(nome, segmento)").order("valor", { ascending: false });
+      if (!isAdmin && user) query = query.eq('responsavel', user.nome);
+      const { data } = await query;
 
       const negocios: Negocio[] = (data ?? []) as Negocio[];
       const fechados = negocios.filter((n) => n.fase === "Fechamento" || n.fase === "Contrato");

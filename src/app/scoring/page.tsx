@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Shell } from "@/components/layout/Shell";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 import { formatCurrency, cn } from "@/lib/utils";
 import type { Negocio } from "@/types";
 import { Star, TrendingUp, Zap, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
@@ -82,17 +83,17 @@ const NIVEL_CONFIG = {
 };
 
 export default function ScoringPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.perfil === 'admin';
   const [negocios, setNegocios] = useState<ScoredNegocio[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"Todos" | "Quente" | "Morno" | "Frio">("Todos");
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("negocios")
-        .select("*, empresas(nome)")
-        .not("fase", "eq", "Contrato")
-        .order("probabilidade", { ascending: false });
+      let query = supabase.from("negocios").select("*, empresas(nome)").not("fase", "eq", "Contrato").order("probabilidade", { ascending: false });
+      if (!isAdmin && user) query = query.eq('responsavel', user.nome);
+      const { data } = await query;
 
       const scored: ScoredNegocio[] = (data ?? []).map((n) => {
         const score = calcScore(n as Negocio);

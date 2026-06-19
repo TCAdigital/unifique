@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
 import { Negocio, Empresa } from '@/types';
 import { NotasSection } from '@/components/NotasSection';
 import { ConcorrentesSection } from '@/components/ConcorrentesSection';
@@ -91,6 +92,8 @@ function negocioToForm(n: Negocio) {
 }
 
 export default function NegociosPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.perfil === 'admin';
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [usuarios, setUsuarios] = useState<{ id: string; nome: string }[]>([]);
@@ -106,10 +109,9 @@ export default function NegociosPage() {
   const [erro, setErro] = useState('');
 
   async function fetchNegocios() {
-    const { data } = await supabase
-      .from('negocios')
-      .select('*, empresas(nome)')
-      .order('valor', { ascending: false });
+    let query = supabase.from('negocios').select('*, empresas(nome)').order('valor', { ascending: false });
+    if (!isAdmin && user) query = query.eq('responsavel', user.nome);
+    const { data } = await query;
     if (data) setNegocios(data as any);
     setLoading(false);
   }
@@ -288,6 +290,11 @@ export default function NegociosPage() {
                               </div>
                               <ChevronRight size={14} className="text-slate-400 group-hover:text-unifique-primary transition-colors" />
                             </div>
+                            {negocio.responsavel && (
+                              <p className="mt-2 text-[10px] text-slate-400 truncate">
+                                <span className="font-bold">Consultor:</span> {negocio.responsavel}
+                              </p>
+                            )}
                           </motion.div>
                         ))}
                       </AnimatePresence>
@@ -584,8 +591,8 @@ export default function NegociosPage() {
                           <option value="12">12 meses</option>
                           <option value="24">24 meses</option>
                           <option value="36">36 meses</option>
-                          <option value="40">40 meses</option>
                           <option value="48">48 meses</option>
+                          <option value="60">60 meses</option>
                         </select>
                       </label>
                       <div>
