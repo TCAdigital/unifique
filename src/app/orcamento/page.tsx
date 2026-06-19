@@ -16,6 +16,8 @@ import {
   XCircle,
   Loader2,
   ChevronDown,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 const CATEGORIAS = [
@@ -84,7 +86,9 @@ export default function OrcamentoPage() {
   const [negocios, setNegocios] = useState<Pick<Negocio, 'id' | 'nome'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [periodoFiltro, setPeriodoFiltro] = useState(PERIODOS[0]);
   const [erro, setErro] = useState('');
@@ -123,14 +127,39 @@ export default function OrcamentoPage() {
     setForm(f => ({ ...f, negocio_id: negocioId, negocio_nome: neg?.nome ?? '', empresa_id: '', empresa_nome: '' }));
   }
 
+  function openEdit(item: Orcamento) {
+    setEditingId(item.id);
+    setForm({
+      categoria: item.categoria,
+      descricao: item.descricao,
+      orcamento: String(item.orcamento),
+      gasto: String(item.gasto),
+      status: item.status,
+      periodo: item.periodo?.slice(0, 7) ?? PERIODOS[0],
+      empresa_id: item.empresa_id ?? '',
+      empresa_nome: item.empresa_nome ?? '',
+      negocio_id: item.negocio_id ?? '',
+      negocio_nome: item.negocio_nome ?? '',
+    });
+    setErro('');
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setErro('');
+  }
+
   async function handleSave() {
     if (!form.descricao.trim()) { setErro('Informe a descrição do item.'); return; }
     if (!form.orcamento || parseFloat(form.orcamento) <= 0) { setErro('Informe o valor orçado.'); return; }
     setSaving(true);
     setErro('');
-    const { data: inserido, error } = await supabase.from("orcamentos").insert({
-      consultor: user?.nome ?? null,
-      consultor_id: user?.id ?? null,
+
+    const payload = {
       periodo: `${form.periodo}-01`,
       categoria: form.categoria,
       descricao: form.descricao.trim(),
@@ -141,12 +170,34 @@ export default function OrcamentoPage() {
       empresa_nome: form.empresa_nome || null,
       negocio_id: form.negocio_id || null,
       negocio_nome: form.negocio_nome || null,
-    }).select().single();
-    setSaving(false);
-    if (error) { setErro('Erro ao salvar: ' + error.message); return; }
-    setItems(prev => [inserido as Orcamento, ...prev]);
-    setForm(EMPTY_FORM);
-    setShowForm(false);
+    };
+
+    if (editingId) {
+      const { data: atualizado, error } = await supabase.from("orcamentos")
+        .update(payload).eq('id', editingId).select().single();
+      setSaving(false);
+      if (error) { setErro('Erro ao atualizar: ' + error.message); return; }
+      setItems(prev => prev.map(it => it.id === editingId ? atualizado as Orcamento : it));
+    } else {
+      const { data: inserido, error } = await supabase.from("orcamentos").insert({
+        ...payload,
+        consultor: user?.nome ?? null,
+        consultor_id: user?.id ?? null,
+      }).select().single();
+      setSaving(false);
+      if (error) { setErro('Erro ao salvar: ' + error.message); return; }
+      setItems(prev => [inserido as Orcamento, ...prev]);
+    }
+    closeForm();
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Excluir este item de orçamento?')) return;
+    setDeleting(id);
+    const { error } = await supabase.from("orcamentos").delete().eq('id', id);
+    setDeleting(null);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    setItems(prev => prev.filter(it => it.id !== id));
   }
 
   const totalOrcado = items.reduce((s, i) => s + i.orcamento, 0);
@@ -239,7 +290,9 @@ export default function OrcamentoPage() {
         {/* Form */}
         {showForm && (
           <div className="glass-card p-6 border-2 border-unifique-primary/20">
-            <h3 className="font-bold text-sm mb-4 text-unifique-primary">Novo Item de Orçamento</h3>
+            <h3 className="font-bold text-sm mb-4 text-unifique-primary">
+              {editingId ? 'Editar Item de Orçamento' : 'Novo Item de Orçamento'}
+            </h3>
             {erro && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg font-medium">{erro}</div>
             )}
@@ -332,11 +385,11 @@ export default function OrcamentoPage() {
                 disabled={saving}
                 className="flex items-center gap-2 px-5 py-2 bg-unifique-primary text-white rounded-lg text-sm font-bold hover:bg-unifique-primary/90 disabled:opacity-60 transition-all"
               >
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                Salvar
+                {saving ? <Loader2 size={14} className="animate-spin" /> : editingId ? <Pencil size={14} /> : <Plus size={14} />}
+                {editingId ? 'Atualizar' : 'Salvar'}
               </button>
               <button
-                onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setErro(''); }}
+                onClick={closeForm}
                 className="px-5 py-2 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
               >
                 Cancelar
@@ -402,6 +455,23 @@ export default function OrcamentoPage() {
                     <div className="text-right flex-shrink-0">
                       <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{formatCurrency(item.gasto)}</p>
                       <p className="text-[10px] text-slate-400">de {formatCurrency(item.orcamento)}</p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => openEdit(item)}
+                        title="Editar"
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-unifique-primary transition-colors"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        disabled={deleting === item.id}
+                        title="Excluir"
+                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors disabled:opacity-40"
+                      >
+                        {deleting === item.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      </button>
                     </div>
                   </div>
                 );
