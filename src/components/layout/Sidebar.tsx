@@ -78,12 +78,18 @@ const MENU_ITEMS = [
     ],
   },
   {
-    group: "BACKOFFICE TI",
+    group: "BACKOFFICE",
     items: [
-      { id: "ti-cadastro", label: "Estoque TIC", icon: Package, href: "/ti/estoque" },
-      { id: "ti-movs", label: "Movimentações", icon: ArrowLeftRight, href: "/ti/movs" },
-      { id: "ti-vendas", label: "Vendas e Finanças", icon: DollarSign, href: "/ti/vendas" },
-      { id: "ti-relatorios", label: "Relatórios", icon: FileBarChart, href: "/ti/relatorios" },
+      { id: "ti-cadastro",  label: "Estoque TIC",    icon: Package,       href: "/ti/estoque"    },
+      { id: "ti-movs",      label: "Movimentações",  icon: ArrowLeftRight, href: "/ti/movs"       },
+      { id: "ti-comissoes", label: "Comissões",      icon: DollarSign,    href: "/ti/comissoes"  },
+    ],
+  },
+  {
+    group: "GERENCIAL",
+    items: [
+      { id: "ti-vendas",    label: "Vendas e Finanças", icon: BarChart3,   href: "/ti/vendas"     },
+      { id: "ti-relatorios",label: "Relatórios TI",    icon: FileBarChart, href: "/ti/relatorios" },
     ],
   },
   {

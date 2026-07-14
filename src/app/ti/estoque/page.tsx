@@ -23,7 +23,15 @@ interface ItemEstoque {
   vigencia_garantia?: string;
   nfe_fornecedor?: string;
   sc_po?: string;
+  negocio_id?: string;
+  negocio_nome?: string;
   obs?: string;
+}
+
+interface NegocioGanho {
+  id: string;
+  nome: string;
+  empresa_nome: string;
 }
 
 const CATEGORIAS = [
@@ -43,6 +51,7 @@ const BLANK_FORM = {
   vigencia_garantia: '',
   nfe_fornecedor: '',
   sc_po: '',
+  negocio_id: '',
   obs: '',
 };
 
@@ -64,6 +73,7 @@ function GarantiaChip({ data }: { data?: string }) {
 
 export default function TiEstoquePage() {
   const [estoque, setEstoque] = useState<ItemEstoque[]>([]);
+  const [negocios, setNegocios] = useState<NegocioGanho[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -74,11 +84,19 @@ export default function TiEstoquePage() {
   const [abaFiltro, setAbaFiltro] = useState<'todos' | 'expirando'>('todos');
 
   async function loadData() {
-    const { data } = await supabase
-      .from('ti_itens')
-      .select('id, nome, tipo, qtd_estoque, qtd_min, custo_unit, fornecedor, sku, capex_opex, vigencia_garantia, nfe_fornecedor, sc_po, obs')
-      .order('nome');
-    setEstoque((data ?? []) as ItemEstoque[]);
+    const [{ data: itens }, { data: neg }] = await Promise.all([
+      supabase
+        .from('ti_itens')
+        .select('id, nome, tipo, qtd_estoque, qtd_min, custo_unit, fornecedor, sku, capex_opex, vigencia_garantia, nfe_fornecedor, sc_po, negocio_id, negocio_nome, obs')
+        .order('nome'),
+      supabase
+        .from('negocios')
+        .select('id, nome, empresa_nome')
+        .eq('fase', 'Ganho')
+        .order('nome'),
+    ]);
+    setEstoque((itens ?? []) as ItemEstoque[]);
+    setNegocios((neg ?? []) as NegocioGanho[]);
     setLoading(false);
   }
 
@@ -133,6 +151,7 @@ export default function TiEstoquePage() {
       vigencia_garantia: item.vigencia_garantia ?? '',
       nfe_fornecedor: item.nfe_fornecedor ?? '',
       sc_po: item.sc_po ?? '',
+      negocio_id: item.negocio_id ?? '',
       obs: item.obs ?? '',
     });
     setErro('');
@@ -144,6 +163,7 @@ export default function TiEstoquePage() {
     setSaving(true);
     setErro('');
 
+    const negSelecionado = negocios.find(n => n.id === form.negocio_id);
     const payload: Record<string, unknown> = {
       nome: form.nome.trim(),
       tipo: form.tipo,
@@ -156,6 +176,8 @@ export default function TiEstoquePage() {
       vigencia_garantia: form.vigencia_garantia || null,
       nfe_fornecedor: form.nfe_fornecedor.trim() || null,
       sc_po: form.sc_po.trim() || null,
+      negocio_id: form.negocio_id || null,
+      negocio_nome: negSelecionado?.nome || null,
       obs: form.obs.trim() || null,
     };
 
@@ -317,8 +339,9 @@ export default function TiEstoquePage() {
                         <p className="text-sm text-slate-700">{item.fornecedor || '—'}</p>
                         {item.nfe_fornecedor && <p className="text-[10px] text-slate-400">NFe: {item.nfe_fornecedor}</p>}
                       </td>
-                      <td className="p-4 text-center">
-                        <span className="text-xs text-slate-600 font-mono">{item.sc_po || '—'}</span>
+                      <td className="p-4">
+                        <p className="text-xs text-slate-600 font-mono text-center">{item.sc_po || '—'}</p>
+                        {item.negocio_nome && <p className="text-[10px] text-unifique-primary text-center truncate max-w-[100px] mx-auto">{item.negocio_nome}</p>}
                       </td>
                       <td className="p-4 text-center">
                         <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold', item.capex_opex === 'OPEX' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700')}>
@@ -435,17 +458,33 @@ export default function TiEstoquePage() {
                       />
                     </label>
                   </div>
+                  <label className="block">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nº SC/PO</span>
+                    <input
+                      type="text"
+                      value={form.sc_po}
+                      onChange={e => f('sc_po', e.target.value)}
+                      placeholder="Ex: SC-2026-0042"
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all font-mono"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Vincular a Negócio Ganho</span>
+                    <select
+                      value={form.negocio_id}
+                      onChange={e => f('negocio_id', e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all bg-white"
+                    >
+                      <option value="">— Nenhum —</option>
+                      {negocios.map(n => (
+                        <option key={n.id} value={n.id}>{n.nome} · {n.empresa_nome}</option>
+                      ))}
+                    </select>
+                  </label>
+
                   <div className="grid grid-cols-2 gap-3">
-                    <label className="block">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nº SC/PO</span>
-                      <input
-                        type="text"
-                        value={form.sc_po}
-                        onChange={e => f('sc_po', e.target.value)}
-                        placeholder="Ex: SC-2026-0042"
-                        className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all font-mono"
-                      />
-                    </label>
+                    <div />
                     <label className="block">
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo de Custo</span>
                       <div className="mt-1 flex gap-3">
