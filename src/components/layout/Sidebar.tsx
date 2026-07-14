@@ -30,6 +30,7 @@ import {
   Package,
   Users,
   Calculator,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -80,9 +81,10 @@ const MENU_ITEMS = [
   {
     group: "BACKOFFICE",
     items: [
-      { id: "ti-cadastro",  label: "Estoque TIC",    icon: Package,       href: "/ti/estoque"    },
-      { id: "ti-movs",      label: "Movimentações",  icon: ArrowLeftRight, href: "/ti/movs"       },
-      { id: "ti-comissoes", label: "Comissões",      icon: DollarSign,    href: "/ti/comissoes"  },
+      { id: "ti-cadastro",   label: "Estoque TIC",           icon: Package,        href: "/ti/estoque"     },
+      { id: "ti-movs",       label: "Movimentações",         icon: ArrowLeftRight, href: "/ti/movs"        },
+      { id: "ti-expiracoes", label: "Contratos em Expiração",icon: Clock,          href: "/ti/expiracoes"  },
+      { id: "ti-comissoes",  label: "Comissões",             icon: DollarSign,     href: "/ti/comissoes"   },
     ],
   },
   {

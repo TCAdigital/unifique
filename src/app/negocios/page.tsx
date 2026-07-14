@@ -105,6 +105,7 @@ export default function NegociosPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [erro, setErro] = useState('');
+  const [custoOrcaCalc, setCustoOrcaCalc] = useState(0);
 
   async function fetchNegocios() {
     let query = supabase.from('negocios').select('*, empresas(nome)').order('valor', { ascending: false });
@@ -129,6 +130,7 @@ export default function NegociosPage() {
     setConfirmDelete(false);
     setForm({ ...BLANK_FORM, empresa_id: empresas[0]?.id ?? '' });
     setProdutoSelecionado('');
+    setCustoOrcaCalc(0);
     setErro('');
     setShowModal(true);
   }
@@ -140,6 +142,15 @@ export default function NegociosPage() {
     setProdutoSelecionado('');
     setErro('');
     setShowModal(true);
+    setCustoOrcaCalc(0);
+    supabase
+      .from('orcamentos')
+      .select('orcamento')
+      .eq('negocio_id', negocio.id)
+      .then(({ data }) => {
+        const total = (data ?? []).reduce((s: number, o: { orcamento: number }) => s + (o.orcamento ?? 0), 0);
+        setCustoOrcaCalc(total);
+      });
   }
 
   function addProduto() {
@@ -174,7 +185,7 @@ export default function NegociosPage() {
       especialista_nome: form.especialista_nome || null,
       produtos: form.produtos,
       link_proposta: form.link_proposta || null,
-      custo_oportunidade: parseFloat(form.custo_oportunidade) || 0,
+      custo_oportunidade: custoOrcaCalc,
       vigencia_meses: vigencia,
     };
 
@@ -567,11 +578,13 @@ export default function NegociosPage() {
                     </label>
 
                     <div className="grid grid-cols-2 gap-3 mb-3">
-                      <label className="block">
+                      <div className="block">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Custo Oportunidade (R$)</span>
-                        <input type="number" min="0" value={form.custo_oportunidade} onChange={e => setForm(f => ({ ...f, custo_oportunidade: e.target.value }))}
-                          className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-unifique-primary transition-all" />
-                      </label>
+                        <div className="mt-1 w-full px-3 py-2 border border-slate-100 rounded-lg text-sm bg-slate-50 text-slate-700 font-mono">
+                          {custoOrcaCalc.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Soma dos orçamentos vinculados</p>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
