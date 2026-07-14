@@ -99,15 +99,15 @@ export default function UsuariosPage() {
     };
     if (form.senha.trim()) payload.password_hash = form.senha.trim();
 
-    let error;
-    if (editId) {
-      ({ error } = await supabase.from("usuarios").update(payload).eq("id", editId));
-    } else {
-      ({ error } = await supabase.from("usuarios").insert(payload));
-    }
+    const res = await fetch('/api/usuarios', {
+      method: editId ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editId ? { id: editId, payload } : { payload }),
+    });
+    const result = await res.json();
 
     setSaving(false);
-    if (error) { setErro("Erro: " + error.message); return; }
+    if (!res.ok) { setErro('Erro: ' + (result.error ?? 'Falha ao salvar')); return; }
     setShowModal(false);
     loadData();
   }

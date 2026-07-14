@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   try {
     const { payload } = await request.json();
     const { data, error } = await getSupabaseAdmin()
-      .from('empresas')
+      .from('usuarios')
       .insert([payload])
       .select()
       .single();
@@ -27,27 +27,13 @@ export async function PATCH(request: Request) {
   try {
     const { id, payload } = await request.json();
     const { data, error } = await getSupabaseAdmin()
-      .from('empresas')
+      .from('usuarios')
       .update(payload)
       .eq('id', id)
       .select()
       .single();
     if (error) return err(error.message);
     return NextResponse.json({ data });
-  } catch (e) {
-    return err(e, 500);
-  }
-}
-
-export async function DELETE(request: Request) {
-  try {
-    const { id } = await request.json();
-    const { error } = await getSupabaseAdmin()
-      .from('empresas')
-      .delete()
-      .eq('id', id);
-    if (error) return err(error.message);
-    return NextResponse.json({ ok: true });
   } catch (e) {
     return err(e, 500);
   }
