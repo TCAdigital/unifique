@@ -8,7 +8,7 @@ interface AuthUser {
   id: string;
   nome: string;
   email: string;
-  perfil: "admin" | "gerente" | "consultor" | "preVenda";
+  perfil: "admin" | "gerente" | "supervisor" | "consultor" | "preVenda";
   avatar: string;
 }
 

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 
-type Perfil = "admin" | "gerente" | "consultor" | "preVenda";
+type Perfil = "admin" | "gerente" | "supervisor" | "consultor" | "preVenda";
 
 interface Usuario {
   id: string;
@@ -21,10 +21,11 @@ interface Usuario {
 }
 
 const PERFIL_CONFIG: Record<Perfil, { label: string; color: string; bg: string }> = {
-  admin:     { label: "Admin",     color: "text-purple-700", bg: "bg-purple-100" },
-  gerente:   { label: "Gerente",   color: "text-blue-700",   bg: "bg-blue-100"   },
-  consultor: { label: "Consultor", color: "text-emerald-700",bg: "bg-emerald-100"},
-  preVenda:  { label: "Pré-Venda", color: "text-amber-700",  bg: "bg-amber-100"  },
+  admin:      { label: "Admin",      color: "text-purple-700",  bg: "bg-purple-100"  },
+  gerente:    { label: "Gerente",    color: "text-blue-700",    bg: "bg-blue-100"    },
+  supervisor: { label: "Supervisor", color: "text-indigo-700",  bg: "bg-indigo-100"  },
+  consultor:  { label: "Consultor",  color: "text-emerald-700", bg: "bg-emerald-100" },
+  preVenda:   { label: "Pré-Venda",  color: "text-amber-700",   bg: "bg-amber-100"   },
 };
 
 const BLANK_FORM = {
@@ -137,8 +138,8 @@ export default function UsuariosPage() {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {(["admin","gerente","consultor","preVenda"] as Perfil[]).map(p => {
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {(["admin","gerente","supervisor","consultor","preVenda"] as Perfil[]).map(p => {
             const cfg = PERFIL_CONFIG[p];
             const count = usuarios.filter(u => u.perfil === p).length;
             return (
@@ -317,6 +318,7 @@ export default function UsuariosPage() {
                   >
                     <option value="admin">Admin</option>
                     <option value="gerente">Gerente</option>
+                    <option value="supervisor">Supervisor</option>
                     <option value="consultor">Consultor</option>
                     <option value="preVenda">Pré-Venda</option>
                   </select>

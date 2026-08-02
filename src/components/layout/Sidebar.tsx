@@ -31,16 +31,18 @@ import {
   Users,
   Calculator,
   Clock,
+  Gauge,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-type Perfil = "admin" | "gerente" | "consultor" | "preVenda";
+type Perfil = "admin" | "gerente" | "supervisor" | "consultor" | "preVenda";
 
 const ROLE_ALLOWED: Record<Perfil, string[] | "*"> = {
   admin: "*",
   gerente: "*",
+  supervisor: ["dashboard", "performance", "ti-vendas", "ti-relatorios"],
   consultor: ["dashboard", "empresas", "pipeline", "scoring", "atividades", "orcamento", "forecast", "fcff"],
   preVenda: ["dashboard", "empresas", "pipeline", "scoring", "atividades", "projetos", "orcamento", "forecast", "fcff"],
 };
@@ -90,6 +92,7 @@ const MENU_ITEMS = [
   {
     group: "GERENCIAL",
     items: [
+      { id: "performance",   label: "Performance",       icon: Gauge,        href: "/performance"   },
       { id: "ti-vendas",    label: "Vendas e Finanças", icon: BarChart3,   href: "/ti/vendas"     },
       { id: "ti-relatorios",label: "Relatórios TI",    icon: FileBarChart, href: "/ti/relatorios" },
     ],
