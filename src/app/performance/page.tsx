@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Shell } from "@/components/layout/Shell";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -51,6 +51,8 @@ const GATES = [
   {id:"G3",de:"prop",para:"neg"},{id:"G4",de:"neg",para:"fech"},
   {id:"G5",de:"fech",para:"ganho"},
 ] as const;
+
+const PESOS: Record<BlkKey,number> = { B1: 20, B2: 45, B3: 35 };
 
 const NIVEL_LABEL = ["—","Crítico","Em desenvolvimento","Consistente","Alta Performance"];
 const NIVEL_CLS   = ["","bg-red-500","bg-amber-500","bg-unifique-primary","bg-emerald-500"];
@@ -284,38 +286,30 @@ function buildVend(u:URow, negs:NRow[], emps:ERow[], tars:TRow[], concs:CRow[], 
   };
 }
 
-// ─── WeightSimulator ──────────────────────────────────────────────────────────
+// ─── Metodologia fixa (só leitura) ───────────────────────────────────────────
 
-function WeightSimulator({ pesos, setPesos }:{pesos:Record<BlkKey,number>;setPesos:(p:Record<BlkKey,number>)=>void}) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const dragging = useRef<"h1"|"h2"|null>(null);
-  const MIN=5;
-  function setFromPct(h1:number,h2:number){const b1=Math.round(Math.max(MIN,Math.min(h1,100-2*MIN)));const b2t=Math.round(Math.max(b1+MIN,Math.min(h2,100-MIN)));setPesos({B1:b1,B2:b2t-b1,B3:100-b2t});}
-  function getPct(cx:number){if(!trackRef.current)return 0;const r=trackRef.current.getBoundingClientRect();return Math.max(0,Math.min(100,((cx-r.left)/r.width)*100));}
-  const PRESETS:[string,[number,number,number]][]=[["Padrão 20/45/35",[20,45,35]],["Hunter 25/40/35",[25,40,35]],["Farmer 15/50/35",[15,50,35]],["Resultado 10/70/20",[10,70,20]]];
-  const segs=[{k:"B1" as BlkKey,label:"Cadastro",color:"#8E9DBE",left:0,w:pesos.B1},{k:"B2" as BlkKey,label:"Pipeline",color:"#0057B8",left:pesos.B1,w:pesos.B2},{k:"B3" as BlkKey,label:"Atividades",color:"#00C8F0",left:pesos.B1+pesos.B2,w:pesos.B3}];
+function MetodologiaCard() {
+  const segs=[{k:"B1" as BlkKey,label:"Cadastro",pts:PESOS.B1,color:"#8E9DBE"},{k:"B2" as BlkKey,label:"Pipeline",pts:PESOS.B2,color:"#0057B8"},{k:"B3" as BlkKey,label:"Atividades",pts:PESOS.B3,color:"#00C8F0"}];
   return (
     <div className="glass-card p-5">
-      <h2 className="text-sm font-bold text-slate-700 mb-0.5">Distribuição dos 100 pontos</h2>
-      <p className="text-xs text-slate-400 mb-4">Arraste os divisores para redistribuir pesos por perfil (Hunter/Farmer/Padrão).</p>
-      <div ref={trackRef} className="relative h-14 rounded-lg overflow-hidden border border-slate-200 select-none touch-none"
-        onPointerMove={e=>{if(!dragging.current)return;const p=getPct(e.clientX);if(dragging.current==="h1")setFromPct(p,pesos.B1+pesos.B2);else setFromPct(pesos.B1,p);}}
-        onPointerUp={()=>{dragging.current=null;}} onPointerLeave={()=>{dragging.current=null;}}>
+      <h2 className="text-sm font-bold text-slate-700 mb-0.5">Metodologia IPC — distribuição dos 100 pontos</h2>
+      <p className="text-xs text-slate-400 mb-4">Pesos fixos aplicados automaticamente sobre os dados reais de cada consultor no CRM.</p>
+      <div className="h-12 rounded-lg overflow-hidden flex">
         {segs.map(s=>(
-          <div key={s.k} className="absolute top-0 bottom-0 flex flex-col justify-center pl-3 overflow-hidden" style={{left:`${s.left}%`,width:`${s.w}%`,background:s.color,transition:"left .1s,width .1s"}}>
-            <span className="text-white font-bold text-xl leading-none">{pesos[s.k]}</span>
+          <div key={s.k} className="flex flex-col justify-center pl-4 overflow-hidden" style={{width:`${s.pts}%`,background:s.color}}>
+            <span className="text-white font-bold text-lg leading-none">{s.pts}</span>
             <span className="text-white/80 text-[9px] uppercase tracking-wider font-mono">{s.label}</span>
           </div>
         ))}
-        {(["h1","h2"] as const).map((h,i)=>{
-          const lft=i===0?pesos.B1:pesos.B1+pesos.B2;
-          return (<div key={h} className="absolute top-0 bottom-0 w-4 -ml-2 cursor-col-resize z-10 flex items-center justify-center" style={{left:`${lft}%`}} onPointerDown={e=>{dragging.current=h;(e.target as Element).setPointerCapture(e.pointerId);e.preventDefault();}}>
-            <div className="w-px h-full bg-white/50"/><div className="absolute w-3.5 h-3.5 rounded-full bg-white border-2 border-slate-600 shadow"/>
-          </div>);
-        })}
       </div>
-      <div className="flex gap-2 flex-wrap mt-3">
-        {PRESETS.map(([label,w])=>{const active=w[0]===pesos.B1&&w[1]===pesos.B2&&w[2]===pesos.B3;return(<button key={label} onClick={()=>setPesos({B1:w[0],B2:w[1],B3:w[2]})} className={cn("px-3 py-1.5 text-[11px] font-mono rounded border transition-all",active?"bg-slate-800 border-slate-800 text-white":"border-slate-200 text-slate-500 hover:border-slate-400")}>{label}</button>);})}
+      <div className="flex gap-6 mt-3 flex-wrap">
+        {segs.map(s=>(
+          <div key={s.k} className="flex items-center gap-1.5 text-xs text-slate-500">
+            <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{background:s.color}}/>
+            <strong className="font-mono text-slate-700">{s.pts} pts</strong> {s.label}
+          </div>
+        ))}
+        <p className="ml-auto text-[10px] text-slate-400">4 indicadores · 3 blocos · 16 KPIs</p>
       </div>
     </div>
   );
@@ -402,7 +396,7 @@ function MatrixView({computed,travasOn}:{computed:Computed[];travasOn:boolean}) 
 
 // ─── Scorecard read-only ──────────────────────────────────────────────────────
 
-function Scorecard({computed,pesos}:{computed:Computed[];pesos:Record<BlkKey,number>}) {
+function Scorecard({computed}:{computed:Computed[]}) {
   const [open, setOpen] = useState(false);
   if (!computed.length) return null;
   return (
@@ -431,7 +425,7 @@ function Scorecard({computed,pesos}:{computed:Computed[];pesos:Record<BlkKey,num
                 <React.Fragment key={b}>
                   <tr className="bg-slate-100/80">
                     <td colSpan={2+computed.length} className="px-4 py-2 font-mono text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      {BLK[b].nome} — {pesos[b]} pts
+                      {BLK[b].nome} — {PESOS[b]} pts
                     </td>
                   </tr>
                   {IND.filter(i=>i.b===b).map(i=>(
@@ -456,7 +450,7 @@ function Scorecard({computed,pesos}:{computed:Computed[];pesos:Record<BlkKey,num
                   ))}
                   <tr className="bg-slate-50 border-t border-slate-200">
                     <td className="px-4 py-2 font-bold text-slate-700">Subtotal {BLK[b].nome}</td>
-                    <td className="px-3 py-2 text-center font-mono text-slate-600">{pesos[b]}</td>
+                    <td className="px-3 py-2 text-center font-mono text-slate-600">{PESOS[b]}</td>
                     {computed.map(o=>(
                       <td key={o.v.id} className="px-3 py-2 text-center font-mono font-bold text-slate-800">{o.blk[b].toFixed(1)}</td>
                     ))}
@@ -487,7 +481,6 @@ export default function PerformancePage() {
   const [rawTars,  setRawTars]  = useState<TRow[]>([]);
   const [rawConcs, setRawConcs] = useState<CRow[]>([]);
   const [loading,  setLoading]  = useState(true);
-  const [pesos,    setPesos]    = useState<Record<BlkKey,number>>({B1:20,B2:45,B3:35});
   const [teto,     setTeto]     = useState(1.20);
   const [travasOn, setTravasOn] = useState(true);
   const [funilSel, setFunilSel] = useState(0);
@@ -520,8 +513,8 @@ export default function PerformancePage() {
     if (!vendedores.length) return [];
     const gs=vendedores.map(v=>{const g=calcGates(v.f);return g.reduce((s,x)=>s+x.pct,0)/g.length;});
     const baseline=gs.reduce((s,x)=>s+x,0)/(gs.length||1);
-    return vendedores.map(v=>({v,...calcIPC(v,pesos,teto,baseline)}));
-  },[vendedores,pesos,teto]);
+    return vendedores.map(v=>({v,...calcIPC(v,PESOS,teto,baseline)}));
+  },[vendedores,teto]);
 
   const ranked  = useMemo(()=>[...computed].sort((a,b)=>b.ipc-a.ipc),[computed]);
   const avgIpc  = computed.length ? computed.reduce((s,o)=>s+o.ipc,0)/computed.length : 0;
@@ -566,20 +559,14 @@ export default function PerformancePage() {
               />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Teto por KPI</label>
-            <input type="range" min={100} max={150} step={5} value={teto*100}
-              onChange={e=>setTeto(+e.target.value/100)} className="w-24 accent-blue-600"/>
-            <span className="font-mono text-sm font-bold text-slate-700">{Math.round(teto*100)}%</span>
-          </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={travasOn} onChange={e=>setTravasOn(e.target.checked)} className="accent-blue-600 w-4 h-4"/>
             <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500">Travas de integridade</span>
           </label>
         </div>
 
-        {/* Simulator */}
-        <WeightSimulator pesos={pesos} setPesos={setPesos}/>
+        {/* Metodologia fixa */}
+        <MetodologiaCard/>
 
         {/* Ranking */}
         <div className="glass-card p-5">
@@ -645,7 +632,7 @@ export default function PerformancePage() {
         </div>
 
         {/* Scorecard colapsável */}
-        <Scorecard computed={computed} pesos={pesos}/>
+        <Scorecard computed={computed}/>
       </div>
     </Shell>
   );
