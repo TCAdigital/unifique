@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { AIChatWidget } from '@/components/AIChatWidget';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ShellProps {
@@ -28,6 +29,7 @@ export function Shell({ children }: ShellProps) {
             {children}
           </motion.div>
         </main>
+        <AIChatWidget />
       </div>
     </div>
   );

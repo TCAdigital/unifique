@@ -44,9 +44,9 @@ type Perfil = "admin" | "gerente" | "supervisor" | "consultor" | "preVenda";
 const ROLE_ALLOWED: Record<Perfil, string[] | "*"> = {
   admin: "*",
   gerente: "*",
-  supervisor: ["dashboard", "checklist", "performance", "ti-vendas", "ti-relatorios", "conhecimento"],
-  consultor: ["dashboard", "checklist", "empresas", "pipeline", "scoring", "atividades", "orcamento", "forecast", "fcff", "conhecimento"],
-  preVenda: ["dashboard", "checklist", "empresas", "pipeline", "scoring", "atividades", "projetos", "orcamento", "forecast", "fcff", "conhecimento"],
+  supervisor: ["dashboard", "checklist", "performance", "ti-vendas", "ti-relatorios"],
+  consultor: ["dashboard", "checklist", "empresas", "pipeline", "scoring", "atividades", "orcamento", "forecast", "fcff"],
+  preVenda: ["dashboard", "checklist", "empresas", "pipeline", "scoring", "atividades", "projetos", "orcamento", "forecast", "fcff"],
 };
 
 const MENU_ITEMS = [
@@ -79,9 +79,8 @@ const MENU_ITEMS = [
   {
     group: "IA & INSIGHTS",
     items: [
-      { id: "agentes",      label: "Agentes Live",         icon: Cpu,      href: "/agentes"      },
-      { id: "forecast",     label: "Forecast IA",          icon: TrendingUp, href: "/forecast"   },
-      { id: "conhecimento", label: "Base de Conhecimento", icon: BookOpen, href: "/conhecimento" },
+      { id: "agentes",  label: "Agentes Live", icon: Cpu,       href: "/agentes"  },
+      { id: "forecast", label: "Forecast IA",  icon: TrendingUp, href: "/forecast" },
     ],
   },
   {
