@@ -32,6 +32,7 @@ import {
   Calculator,
   Clock,
   Gauge,
+  CalendarCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -42,16 +43,17 @@ type Perfil = "admin" | "gerente" | "supervisor" | "consultor" | "preVenda";
 const ROLE_ALLOWED: Record<Perfil, string[] | "*"> = {
   admin: "*",
   gerente: "*",
-  supervisor: ["dashboard", "performance", "ti-vendas", "ti-relatorios"],
-  consultor: ["dashboard", "empresas", "pipeline", "scoring", "atividades", "orcamento", "forecast", "fcff"],
-  preVenda: ["dashboard", "empresas", "pipeline", "scoring", "atividades", "projetos", "orcamento", "forecast", "fcff"],
+  supervisor: ["dashboard", "checklist", "performance", "ti-vendas", "ti-relatorios"],
+  consultor: ["dashboard", "checklist", "empresas", "pipeline", "scoring", "atividades", "orcamento", "forecast", "fcff"],
+  preVenda: ["dashboard", "checklist", "empresas", "pipeline", "scoring", "atividades", "projetos", "orcamento", "forecast", "fcff"],
 };
 
 const MENU_ITEMS = [
   {
     group: "HOME",
     items: [
-      { id: "dashboard", label: "Painel Unificado", icon: LayoutDashboard, href: "/" },
+      { id: "dashboard",  label: "Painel Unificado", icon: LayoutDashboard, href: "/" },
+      { id: "checklist",  label: "Agenda do Dia",    icon: CalendarCheck,   href: "/checklist" },
     ],
   },
   {
