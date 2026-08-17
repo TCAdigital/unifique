@@ -5,12 +5,10 @@ import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard,
   Building2,
-  Briefcase,
   CheckSquare,
   BarChart3,
   Cpu,
   LogOut,
-  MessageSquare,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -53,21 +51,21 @@ const MENU_ITEMS = [
   {
     group: "HOME",
     items: [
-      { id: "dashboard",  label: "Painel Unificado", icon: LayoutDashboard, href: "/" },
-      { id: "checklist",  label: "Agenda do Dia",    icon: CalendarCheck,   href: "/checklist" },
+      { id: "dashboard", label: "Painel Unificado", icon: LayoutDashboard, href: "/" },
+      { id: "checklist", label: "Agenda do Dia",    icon: CalendarCheck,   href: "/checklist" },
     ],
   },
   {
     group: "CRM",
     items: [
-      { id: "empresas", label: "Empresas", icon: Building2, href: "/empresas" },
-      { id: "pipeline", label: "Pipeline", icon: Kanban, href: "/negocios" },
-      { id: "scoring", label: "Lead Scoring", icon: Star, href: "/scoring" },
-      { id: "atividades", label: "Atividades", icon: CheckSquare, href: "/atividades" },
-      { id: "projetos", label: "Projetos", icon: FolderOpen, href: "/projetos" },
-      { id: "ticket", label: "Ticket Médio", icon: Target, href: "/ticket" },
-      { id: "orcamento", label: "Orçamento",    icon: Wallet,      href: "/orcamento" },
-      { id: "fcff",      label: "FCFF HaaS",    icon: Calculator,  href: "/fcff" },
+      { id: "empresas",   label: "Empresas",      icon: Building2,  href: "/empresas"  },
+      { id: "pipeline",   label: "Pipeline",       icon: Kanban,     href: "/negocios"  },
+      { id: "scoring",    label: "Lead Scoring",   icon: Star,       href: "/scoring"   },
+      { id: "atividades", label: "Atividades",     icon: CheckSquare,href: "/atividades"},
+      { id: "projetos",   label: "Projetos",       icon: FolderOpen, href: "/projetos"  },
+      { id: "ticket",     label: "Ticket Médio",   icon: Target,     href: "/ticket"    },
+      { id: "orcamento",  label: "Orçamento",      icon: Wallet,     href: "/orcamento" },
+      { id: "fcff",       label: "FCFF HaaS",      icon: Calculator, href: "/fcff"      },
     ],
   },
   {
@@ -87,18 +85,18 @@ const MENU_ITEMS = [
   {
     group: "BACKOFFICE",
     items: [
-      { id: "ti-cadastro",   label: "Estoque TIC",           icon: Package,        href: "/ti/estoque"     },
-      { id: "ti-movs",       label: "Movimentações",         icon: ArrowLeftRight, href: "/ti/movs"        },
-      { id: "ti-expiracoes", label: "Contratos em Expiração",icon: Clock,          href: "/ti/expiracoes"  },
-      { id: "ti-comissoes",  label: "Comissões",             icon: DollarSign,     href: "/ti/comissoes"   },
+      { id: "ti-cadastro",   label: "Estoque TIC",            icon: Package,        href: "/ti/estoque"    },
+      { id: "ti-movs",       label: "Movimentações",          icon: ArrowLeftRight, href: "/ti/movs"       },
+      { id: "ti-expiracoes", label: "Contratos em Expiração", icon: Clock,          href: "/ti/expiracoes" },
+      { id: "ti-comissoes",  label: "Comissões",              icon: DollarSign,     href: "/ti/comissoes"  },
     ],
   },
   {
     group: "GERENCIAL",
     items: [
-      { id: "performance",   label: "Performance",       icon: Gauge,        href: "/performance"   },
-      { id: "ti-vendas",    label: "Vendas e Finanças", icon: BarChart3,   href: "/ti/vendas"     },
-      { id: "ti-relatorios",label: "Relatórios TI",    icon: FileBarChart, href: "/ti/relatorios" },
+      { id: "performance",    label: "Performance",       icon: Gauge,        href: "/performance"   },
+      { id: "ti-vendas",      label: "Vendas e Finanças", icon: BarChart3,    href: "/ti/vendas"     },
+      { id: "ti-relatorios",  label: "Relatórios TI",    icon: FileBarChart, href: "/ti/relatorios" },
     ],
   },
   {
@@ -110,10 +108,10 @@ const MENU_ITEMS = [
   {
     group: "INTEGRAÇÕES",
     items: [
-      { id: "int-whats", label: "WhatsApp Business", icon: MessageCircle, href: "/integracoes/whatsapp" },
-      { id: "int-teams", label: "Microsoft Teams", icon: Video, href: "/integracoes/teams" },
-      { id: "int-o365", label: "Office 365", icon: Mail, href: "/integracoes/o365" },
-      { id: "int-config", label: "Configurações", icon: Settings, href: "/integracoes/config" },
+      { id: "int-whats",  label: "WhatsApp Business", icon: MessageCircle, href: "/integracoes/whatsapp" },
+      { id: "int-teams",  label: "Microsoft Teams",   icon: Video,         href: "/integracoes/teams"    },
+      { id: "int-o365",   label: "Office 365",        icon: Mail,          href: "/integracoes/o365"     },
+      { id: "int-config", label: "Configurações",     icon: Settings,      href: "/integracoes/config"   },
     ],
   },
 ];
@@ -127,6 +125,10 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
+  function openAIWidget() {
+    window.dispatchEvent(new CustomEvent("open-ai-widget"));
+  }
+
   return (
     <aside
       className={cn(
@@ -139,15 +141,11 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
       <div className="p-6 flex items-center justify-between flex-shrink-0">
         {isOpen ? (
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-unifique-primary rounded-lg flex items-center justify-center font-bold text-white">
-              U
-            </div>
+            <div className="w-8 h-8 bg-unifique-primary rounded-lg flex items-center justify-center font-bold text-white">U</div>
             <span className="font-bold text-white text-xl tracking-tight">unifique</span>
           </div>
         ) : (
-          <div className="w-8 h-8 bg-unifique-primary rounded-lg flex items-center justify-center font-bold text-white mx-auto">
-            U
-          </div>
+          <div className="w-8 h-8 bg-unifique-primary rounded-lg flex items-center justify-center font-bold text-white mx-auto">U</div>
         )}
       </div>
 
@@ -165,50 +163,71 @@ export function Sidebar({ isOpen, toggle }: SidebarProps) {
         {MENU_ITEMS.map((group) => {
           const perfil = (user?.perfil ?? "consultor") as Perfil;
           const allowed = ROLE_ALLOWED[perfil] ?? ROLE_ALLOWED.consultor;
-          const visibleItems = allowed === "*" ? group.items : group.items.filter(i => (allowed as string[]).includes(i.id));
+          const visibleItems =
+            allowed === "*" ? group.items : group.items.filter((i) => (allowed as string[]).includes(i.id));
           if (visibleItems.length === 0) return null;
+
           return (
-          <div key={group.group} className="space-y-0.5">
-            {isOpen && (
-              <p className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7A9BB8" }}>
-                {group.group}
-              </p>
-            )}
-            {!isOpen && <div className="border-t border-white/5 mx-2 my-2" />}
-            {visibleItems.map((item) => {
-              const isActive = pathname === item.href;
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group",
-                    isActive
-                      ? "text-white"
-                      : "hover:text-white text-slate-400"
-                  )}
-                  style={isActive ? { background: "linear-gradient(90deg, rgba(0,87,184,0.7) 0%, rgba(0,200,240,0.15) 100%)", borderLeft: "2px solid #00C8F0" } : undefined}
-                  title={!isOpen ? item.label : undefined}
-                >
-                  <Icon
-                    size={18}
-                    className={cn(
-                      isActive
-                        ? "text-unifique-cyan"
-                        : "text-slate-400 group-hover:text-white"
+            <div key={group.group} className="space-y-0.5">
+              {isOpen && (
+                <p className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7A9BB8" }}>
+                  {group.group}
+                </p>
+              )}
+              {!isOpen && <div className="border-t border-white/5 mx-2 my-2" />}
+
+              {visibleItems.map((item) => {
+                const Icon = item.icon;
+                const isWidget = item.id === "conhecimento";
+                const isActive = !isWidget && pathname === item.href;
+
+                const sharedClass = cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group w-full text-left",
+                  isActive ? "text-white" : "hover:text-white text-slate-400"
+                );
+                const sharedStyle = isActive
+                  ? { background: "linear-gradient(90deg, rgba(0,87,184,0.7) 0%, rgba(0,200,240,0.15) 100%)", borderLeft: "2px solid #00C8F0" }
+                  : undefined;
+
+                const inner = (
+                  <>
+                    <Icon
+                      size={18}
+                      className={cn(isActive ? "text-unifique-cyan" : "text-slate-400 group-hover:text-white")}
+                    />
+                    {isOpen && <span className="text-sm font-medium truncate">{item.label}</span>}
+                    {isActive && isOpen && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-unifique-cyan shadow-[0_0_8px_rgba(0,200,240,0.6)] flex-shrink-0" />
                     )}
-                  />
-                  {isOpen && (
-                    <span className="text-sm font-medium truncate">{item.label}</span>
-                  )}
-                  {isActive && isOpen && (
-                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-unifique-cyan shadow-[0_0_8px_rgba(0,200,240,0.6)] flex-shrink-0" />
-                  )}
-                </Link>
-              );
-            })}
-          </div>
+                  </>
+                );
+
+                if (isWidget) {
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={openAIWidget}
+                      className={sharedClass}
+                      title={!isOpen ? item.label : undefined}
+                    >
+                      {inner}
+                    </button>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className={sharedClass}
+                    style={sharedStyle}
+                    title={!isOpen ? item.label : undefined}
+                  >
+                    {inner}
+                  </Link>
+                );
+              })}
+            </div>
           );
         })}
       </nav>

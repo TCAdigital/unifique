@@ -80,6 +80,12 @@ export function AIChatWidget() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("open-ai-widget", handler);
+    return () => window.removeEventListener("open-ai-widget", handler);
+  }, []);
+
+  useEffect(() => {
     if (open && docs.length === 0) loadDocs();
   }, [open]);
 
