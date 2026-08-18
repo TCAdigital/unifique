@@ -60,7 +60,6 @@ export function AIChatWidget() {
   const [loading, setLoading] = useState(false);
   const [chatError, setChatError] = useState("");
   const [showLinks, setShowLinks] = useState(false);
-  const [activeNotebook, setActiveNotebook] = useState<{ title: string; url: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -400,77 +399,6 @@ export function AIChatWidget() {
         )}
       </AnimatePresence>
 
-      {/* ── NotebookLM Iframe Viewer ── */}
-      <AnimatePresence>
-        {activeNotebook && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[70] flex flex-col"
-            style={{ background: "#0a0f1e" }}
-          >
-            {/* Iframe header bar */}
-            <div
-              className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-              style={{
-                background: "linear-gradient(90deg, #001840, #002060)",
-                borderBottom: "1px solid rgba(0,200,240,0.15)",
-              }}
-            >
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, #0057B8, #00C8F0)" }}
-              >
-                <BookOpen size={14} className="text-white" />
-              </div>
-              <p className="text-sm font-semibold text-white flex-1 truncate">
-                {activeNotebook.title}
-              </p>
-              <a
-                href={activeNotebook.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-all flex-shrink-0"
-                style={{
-                  color: "#7A9BB8",
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  textDecoration: "none",
-                }}
-                title="Abrir em nova aba"
-              >
-                <ExternalLink size={12} />
-                <span>Nova aba</span>
-              </a>
-              <button
-                onClick={() => setActiveNotebook(null)}
-                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-all flex-shrink-0"
-                style={{
-                  color: "#7A9BB8",
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                }}
-                title="Fechar"
-              >
-                <X size={12} />
-                <span>Fechar</span>
-              </button>
-            </div>
-
-            {/* iframe */}
-            <iframe
-              src={activeNotebook.url}
-              title={activeNotebook.title}
-              className="flex-1 w-full border-0"
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-popups-to-escape-sandbox"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ── NotebookLM Links Modal ── */}
       <AnimatePresence>
         {showLinks && (
@@ -515,7 +443,17 @@ export function AIChatWidget() {
                 {NOTEBOOK_LINKS.map((link, i) => (
                   <button
                     key={i}
-                    onClick={() => { setActiveNotebook(link); setShowLinks(false); }}
+                    onClick={() => {
+                      const w = Math.min(1200, window.screen.width - 100);
+                      const h = Math.min(800, window.screen.height - 100);
+                      const left = Math.round((window.screen.width - w) / 2);
+                      const top = Math.round((window.screen.height - h) / 2);
+                      window.open(
+                        link.url,
+                        link.title,
+                        `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`
+                      );
+                    }}
                     className="w-full flex items-center gap-3 p-4 rounded-xl transition-all text-left"
                     style={{
                       background: "rgba(255,255,255,0.05)",
@@ -537,7 +475,7 @@ export function AIChatWidget() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white">{link.title}</p>
                       <p className="text-xs" style={{ color: "#7A9BB8" }}>
-                        Abrir dentro do sistema
+                        Abre como janela flutuante
                       </p>
                     </div>
                     <ExternalLink size={14} style={{ color: "#00C8F0", flexShrink: 0 }} />
