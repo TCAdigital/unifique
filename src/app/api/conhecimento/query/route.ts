@@ -1,11 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+function getDB() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+
 type HistoryMessage = { role: "user" | "assistant"; content: string };
+
+// Normaliza pergunta para comparação: minúsculas, sem acentos, espaços compactados
+function normalizar(texto: string): string {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +45,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Pergunta vazia" }, { status: 400 });
     }
 
+    const db = getDB();
+    const perguntaNorm = normalizar(question);
+
+    // ── 1. Verifica cache ────────────────────────────────────────────────
+    const { data: cached } = await db.rpc("buscar_cache", {
+      q: perguntaNorm,
+      threshold: 0.70,
+    });
+
+    if (cached && cached.length > 0) {
+      const hit = cached[0];
+      // Incrementa contador de reutilizações (fire-and-forget)
+      db.from("cache_respostas")
+        .update({ hits: hit.hits + 1 })
+        .eq("id", hit.id)
+        .then(() => {});
+
+      return NextResponse.json({
+        answer: hit.resposta,
+        redirectToLinks: hit.redirect_to_links,
+        fromCache: true,
+      });
+    }
+
+    // ── 2. Chama Claude ──────────────────────────────────────────────────
     const client = new Anthropic({ apiKey });
 
     const systemPrompt = `Você é um assistente especialista técnico e comercial da Unifique Plataforma TIC, empresa brasileira de tecnologia e telecomunicações.
@@ -66,7 +110,19 @@ Após a marcação, oriente o usuário a consultar as fontes externas disponíve
     const redirectToLinks = rawAnswer.trimStart().startsWith("[SEM_RESPOSTA]");
     const answer = rawAnswer.replace(/^\[SEM_RESPOSTA\]\s*/i, "").trim();
 
-    return NextResponse.json({ answer, redirectToLinks });
+    // ── 3. Salva no cache (somente respostas úteis, sem histórico) ───────
+    if (history.length === 0) {
+      db.from("cache_respostas")
+        .insert({
+          pergunta: question.trim(),
+          pergunta_norm: perguntaNorm,
+          resposta: answer,
+          redirect_to_links: redirectToLinks,
+        })
+        .then(() => {});
+    }
+
+    return NextResponse.json({ answer, redirectToLinks, fromCache: false });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },
