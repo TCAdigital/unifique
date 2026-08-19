@@ -31,10 +31,10 @@ const NOTEBOOK_LINKS = [
 ];
 
 const SUGGESTIONS = [
-  "Especificações técnicas do produto",
-  "Como configurar este equipamento?",
-  "Diferenças entre os modelos?",
-  "Tabela de licenciamento",
+  "Diferenças entre FortiGate e CrowdStrike?",
+  "Como funciona o licenciamento Fortinet?",
+  "O que é SD-WAN e quando usar?",
+  "CrowdStrike Falcon — quais módulos existem?",
 ];
 
 function renderAnswer(text: string) {
@@ -236,7 +236,7 @@ export function AIChatWidget() {
                       className="text-xs mt-1.5 max-w-[260px]"
                       style={{ color: "#7A9BB8" }}
                     >
-                      Faça perguntas sobre produtos, configurações e procedimentos da Unifique.
+                      Pergunte sobre Fortinet, CrowdStrike, redes, segurança e licenciamento.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-center">

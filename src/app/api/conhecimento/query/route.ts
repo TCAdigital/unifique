@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-function getDB() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
 
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 
@@ -35,30 +26,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Pergunta vazia" }, { status: 400 });
     }
 
-    // Carrega todo o conteúdo de texto da base de conhecimento
-    const { data: docs } = await getDB()
-      .from("base_conhecimento")
-      .select("nome, conteudo, tags")
-      .eq("tipo", "texto")
-      .not("conteudo", "is", null)
-      .order("created_at", { ascending: true });
-
-    const context =
-      docs && docs.length > 0
-        ? docs.map((d) => `[${d.nome}]\n${d.conteudo}`).join("\n\n---\n\n")
-        : "";
-
     const client = new Anthropic({ apiKey });
 
-    const systemPrompt = `Você é um assistente especialista da Unifique Plataforma TIC, focado em suporte técnico e comercial.
-Responda SOMENTE com base no conteúdo da base de conhecimento abaixo. Use português do Brasil, seja objetivo e profissional.
-Se a informação NÃO estiver disponível na base de conhecimento, comece sua resposta EXATAMENTE com a marcação: [SEM_RESPOSTA]
-Após a marcação, oriente brevemente o usuário a consultar as fontes externas disponíveis no widget.
-Nunca invente informações que não estejam na base.
+    const systemPrompt = `Você é um assistente especialista técnico e comercial da Unifique Plataforma TIC, empresa brasileira de tecnologia e telecomunicações.
 
-=== BASE DE CONHECIMENTO ===
-${context || "(Base de conhecimento ainda sem conteúdo cadastrado)"}
-=== FIM DA BASE ===`;
+Você tem amplo conhecimento sobre os produtos e tecnologias que a Unifique comercializa e suporta, incluindo:
+- **Fortinet**: FortiGate (firewall/NGFW), FortiSwitch, FortiAP, FortiAnalyzer, FortiManager, FortiEDR, SD-WAN, VPN, Zero Trust, licenciamento FortiCare e UTP
+- **CrowdStrike**: Falcon Platform, EDR/XDR, Threat Intelligence, Falcon Go/Pro/Enterprise, módulos como Prevent, Insight, Discover, OverWatch
+- **Redes e infraestrutura**: SD-WAN, MPLS, BGP, VLANs, QoS, segmentação de rede, alta disponibilidade
+- **Segurança**: NGFW, IPS/IDS, antivírus corporativo, endpoint protection, SIEM, gestão de vulnerabilidades
+- **Licenciamento**: modelos de licença por usuário, por dispositivo, subscrições anuais, bundle vs. modular
+
+Responda de forma objetiva, profissional e em português do Brasil.
+Seja técnico quando necessário, mas acessível para perfis comerciais.
+
+Se a pergunta for sobre informações internas e específicas da Unifique — como preços praticados, contratos específicos de clientes, processos internos, ou dados proprietários — diga que não tem essa informação disponível aqui e comece sua resposta EXATAMENTE com: [SEM_RESPOSTA]
+Após a marcação, oriente o usuário a consultar as fontes externas disponíveis no widget.`;
 
     const messages: Anthropic.MessageParam[] = [
       ...history.slice(-6).map((m) => ({
