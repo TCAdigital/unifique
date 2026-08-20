@@ -69,7 +69,21 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ── 2. Chama Claude ──────────────────────────────────────────────────
+    // ── 2. Carrega base de conhecimento do banco ─────────────────────────
+    const { data: conhecimentos } = await db
+      .from("base_conhecimento")
+      .select("nome, conteudo")
+      .eq("tipo", "texto")
+      .not("conteudo", "is", null)
+      .order("created_at", { ascending: true });
+
+    const contextoEspecifico = conhecimentos && conhecimentos.length > 0
+      ? `\n\n=== CONHECIMENTO ESPECÍFICO DA UNIFIQUE ===\n${
+          conhecimentos.map((d) => `[${d.nome}]\n${d.conteudo}`).join("\n\n---\n\n")
+        }\n=== FIM DO CONHECIMENTO ESPECÍFICO ===`
+      : "";
+
+    // ── 3. Chama Claude ──────────────────────────────────────────────────
     const client = new Anthropic({ apiKey });
 
     const systemPrompt = `Você é um assistente especialista técnico e comercial da Unifique Plataforma TIC, empresa brasileira de tecnologia e telecomunicações.
@@ -80,11 +94,13 @@ Você tem amplo conhecimento sobre os produtos e tecnologias que a Unifique come
 - **Redes e infraestrutura**: SD-WAN, MPLS, BGP, VLANs, QoS, segmentação de rede, alta disponibilidade
 - **Segurança**: NGFW, IPS/IDS, antivírus corporativo, endpoint protection, SIEM, gestão de vulnerabilidades
 - **Licenciamento**: modelos de licença por usuário, por dispositivo, subscrições anuais, bundle vs. modular
+- **Metodologia comercial**: SPIN Selling, ICP, gestão de carteira, proposta de valor${contextoEspecifico}
 
+Priorize sempre o conteúdo do "CONHECIMENTO ESPECÍFICO DA UNIFIQUE" quando disponível — ele contém informações proprietárias e contextuais da empresa que devem prevalecer sobre conhecimento geral.
 Responda de forma objetiva, profissional e em português do Brasil.
 Seja técnico quando necessário, mas acessível para perfis comerciais.
 
-Se a pergunta for sobre informações internas e específicas da Unifique — como preços praticados, contratos específicos de clientes, processos internos, ou dados proprietários — diga que não tem essa informação disponível aqui e comece sua resposta EXATAMENTE com: [SEM_RESPOSTA]
+Se a pergunta for sobre dados que não estão nem no seu conhecimento geral nem no contexto específico da Unifique (ex: preços praticados atualmente, contratos específicos de clientes), comece sua resposta EXATAMENTE com: [SEM_RESPOSTA]
 Após a marcação, oriente o usuário a consultar as fontes externas disponíveis no widget.`;
 
     const messages: Anthropic.MessageParam[] = [
@@ -110,7 +126,7 @@ Após a marcação, oriente o usuário a consultar as fontes externas disponíve
     const redirectToLinks = rawAnswer.trimStart().startsWith("[SEM_RESPOSTA]");
     const answer = rawAnswer.replace(/^\[SEM_RESPOSTA\]\s*/i, "").trim();
 
-    // ── 3. Salva no cache (somente respostas úteis, sem histórico) ───────
+    // ── 4. Salva no cache (somente respostas úteis, sem histórico) ───────
     if (history.length === 0) {
       db.from("cache_respostas")
         .insert({
