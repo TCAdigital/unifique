@@ -16,7 +16,6 @@ function getDB() {
 
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 
-// Normaliza pergunta para comparação: minúsculas, sem acentos, espaços compactados
 function normalizar(texto: string): string {
   return texto
     .toLowerCase()
@@ -48,7 +47,7 @@ export async function POST(request: NextRequest) {
     const db = getDB();
     const perguntaNorm = normalizar(question);
 
-    // ── 1. Verifica cache ────────────────────────────────────────────────
+    // ── 1. Verifica cache de respostas anteriores ────────────────────────
     const { data: cached } = await db.rpc("buscar_cache", {
       q: perguntaNorm,
       threshold: 0.70,
@@ -56,17 +55,12 @@ export async function POST(request: NextRequest) {
 
     if (cached && cached.length > 0) {
       const hit = cached[0];
-      // Incrementa contador de reutilizações (fire-and-forget)
       db.from("cache_respostas")
         .update({ hits: hit.hits + 1 })
         .eq("id", hit.id)
         .then(() => {});
 
-      return NextResponse.json({
-        answer: hit.resposta,
-        redirectToLinks: hit.redirect_to_links,
-        fromCache: true,
-      });
+      return NextResponse.json({ answer: hit.resposta, fromCache: true });
     }
 
     // ── 2. Carrega base de conhecimento do banco ─────────────────────────
@@ -77,31 +71,26 @@ export async function POST(request: NextRequest) {
       .not("conteudo", "is", null)
       .order("created_at", { ascending: true });
 
-    const contextoEspecifico = conhecimentos && conhecimentos.length > 0
-      ? `\n\n=== CONHECIMENTO ESPECÍFICO DA UNIFIQUE ===\n${
-          conhecimentos.map((d) => `[${d.nome}]\n${d.conteudo}`).join("\n\n---\n\n")
-        }\n=== FIM DO CONHECIMENTO ESPECÍFICO ===`
+    const temConhecimento = conhecimentos && conhecimentos.length > 0;
+    const baseConhecimento = temConhecimento
+      ? conhecimentos!.map((d) => `[${d.nome}]\n${d.conteudo}`).join("\n\n---\n\n")
       : "";
 
-    // ── 3. Chama Claude ──────────────────────────────────────────────────
+    // ── 3. Chama Claude apenas para processar o conteúdo do banco ────────
     const client = new Anthropic({ apiKey });
 
-    const systemPrompt = `Você é um assistente especialista técnico e comercial da Unifique Plataforma TIC, empresa brasileira de tecnologia e telecomunicações.
+    const systemPrompt = temConhecimento
+      ? `Você é um assistente da Unifique Plataforma TIC.
+Responda SOMENTE com base no conteúdo da base de conhecimento abaixo — não use conhecimento externo.
+Se a pergunta não puder ser respondida com o conteúdo disponível, diga claramente: "Não encontrei essa informação na nossa base de conhecimento."
+Use português do Brasil, seja objetivo e profissional.
 
-Você tem amplo conhecimento sobre os produtos e tecnologias que a Unifique comercializa e suporta, incluindo:
-- **Fortinet**: FortiGate (firewall/NGFW), FortiSwitch, FortiAP, FortiAnalyzer, FortiManager, FortiEDR, SD-WAN, VPN, Zero Trust, licenciamento FortiCare e UTP
-- **CrowdStrike**: Falcon Platform, EDR/XDR, Threat Intelligence, Falcon Go/Pro/Enterprise, módulos como Prevent, Insight, Discover, OverWatch
-- **Redes e infraestrutura**: SD-WAN, MPLS, BGP, VLANs, QoS, segmentação de rede, alta disponibilidade
-- **Segurança**: NGFW, IPS/IDS, antivírus corporativo, endpoint protection, SIEM, gestão de vulnerabilidades
-- **Licenciamento**: modelos de licença por usuário, por dispositivo, subscrições anuais, bundle vs. modular
-- **Metodologia comercial**: SPIN Selling, ICP, gestão de carteira, proposta de valor${contextoEspecifico}
-
-Priorize sempre o conteúdo do "CONHECIMENTO ESPECÍFICO DA UNIFIQUE" quando disponível — ele contém informações proprietárias e contextuais da empresa que devem prevalecer sobre conhecimento geral.
-Responda de forma objetiva, profissional e em português do Brasil.
-Seja técnico quando necessário, mas acessível para perfis comerciais.
-
-Se a pergunta for sobre dados que não estão nem no seu conhecimento geral nem no contexto específico da Unifique (ex: preços praticados atualmente, contratos específicos de clientes), comece sua resposta EXATAMENTE com: [SEM_RESPOSTA]
-Após a marcação, oriente o usuário a consultar as fontes externas disponíveis no widget.`;
+=== BASE DE CONHECIMENTO ===
+${baseConhecimento}
+=== FIM DA BASE ===`
+      : `Você é um assistente da Unifique Plataforma TIC.
+A base de conhecimento ainda não possui conteúdo cadastrado.
+Informe ao usuário que a base está sendo construída e que em breve haverá informações disponíveis.`;
 
     const messages: Anthropic.MessageParam[] = [
       ...history.slice(-6).map((m) => ({
@@ -113,32 +102,30 @@ Após a marcação, oriente o usuário a consultar as fontes externas disponíve
 
     const response = await client.messages.create({
       model: "claude-opus-5",
-      max_tokens: 4096,
+      max_tokens: 2048,
       system: systemPrompt,
       messages,
     });
 
-    const rawAnswer = response.content
+    const answer = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
-      .join("");
+      .join("")
+      .trim();
 
-    const redirectToLinks = rawAnswer.trimStart().startsWith("[SEM_RESPOSTA]");
-    const answer = rawAnswer.replace(/^\[SEM_RESPOSTA\]\s*/i, "").trim();
-
-    // ── 4. Salva no cache (somente respostas úteis, sem histórico) ───────
+    // ── 4. Salva no cache para reutilização futura ────────────────────────
     if (history.length === 0) {
       db.from("cache_respostas")
         .insert({
           pergunta: question.trim(),
           pergunta_norm: perguntaNorm,
           resposta: answer,
-          redirect_to_links: redirectToLinks,
+          redirect_to_links: false,
         })
         .then(() => {});
     }
 
-    return NextResponse.json({ answer, redirectToLinks, fromCache: false });
+    return NextResponse.json({ answer, fromCache: false });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },
