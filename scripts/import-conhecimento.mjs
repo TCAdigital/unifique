@@ -104,3 +104,16 @@ for (const doc of DOCUMENTOS) {
   }
 }
 
+// Invalida o cache de respostas da IA: o conteúdo mudou e respostas antigas
+// (gravadas com a base anterior) não podem mais ser servidas.
+const { error: cacheErr } = await sb
+  .from("cache_respostas")
+  .delete({ count: "exact" })
+  .not("id", "is", null);
+
+if (cacheErr) {
+  console.warn(`⚠️  Não foi possível limpar cache_respostas (${cacheErr.message}).`);
+} else {
+  console.log("🧹 Cache de respostas da IA invalidado.");
+}
+
