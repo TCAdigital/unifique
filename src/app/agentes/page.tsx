@@ -53,6 +53,10 @@ const AGENTES = [
   { id: "health", nome: "Deal Health AI", icon: Activity, cor: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/20", grupo: "Pipeline" },
 ];
 
+// PostgREST devolve no máximo 1000 linhas por requisição — limite explícito
+// para que a fila SDR possa avisar quando a base passar disso.
+const LIMITE_LEADS = 1000;
+
 const FALLBACK_MSGS = [
   "Monitorando estagnação no pipeline",
   "Calculando score ICP de novo lead",
@@ -77,14 +81,17 @@ export default function AgentesPage() {
   const [copiado, setCopiado] = useState<string | null>(null);
   const [convertendo, setConvertendo] = useState<string | null>(null);
   const [erroConversao, setErroConversao] = useState<string | null>(null);
+  const [buscaLead, setBuscaLead] = useState("");
+  const [limiteLeads, setLimiteLeads] = useState(20);
 
-  // Fila de prospecção do Agente SDR: contas com status Lead
+  // Fila de prospecção do Agente SDR: contas com status Lead.
   useEffect(() => {
     supabase
       .from('empresas')
       .select('id, nome, segmento, status, contato, email_contato, tel')
       .eq('status', 'Lead')
       .order('nome')
+      .limit(LIMITE_LEADS)
       .then(({ data }) => {
         setLeads((data ?? []) as EmpresaLead[]);
         setLeadsLoading(false);
@@ -113,6 +120,14 @@ export default function AgentesPage() {
 
   const leadsProntos = leads.filter((l) => pendenciasContato(paraLead(l)).length === 0).length;
   const leadsPendentes = leads.length - leadsProntos;
+
+  // A base pode ter centenas de leads: a fila é filtrada e paginada no cliente
+  // para não renderizar tudo de uma vez.
+  const leadsFiltrados = leads.filter((l) => {
+    const alvo = `${l.nome} ${l.segmento ?? ""} ${l.contato ?? ""} ${l.email_contato ?? ""}`.toLowerCase();
+    return alvo.includes(buscaLead.trim().toLowerCase());
+  });
+  const leadsVisiveis = leadsFiltrados.slice(0, limiteLeads);
 
   // Converte o lead em Negociando/Ativo — a conta sai da fila SDR e passa a
   // ser acompanhada no Diagnóstico da Agenda do Dia.
@@ -246,6 +261,11 @@ export default function AgentesPage() {
             </div>
             <div className="ml-auto flex flex-wrap items-center gap-2 text-[10px] font-bold">
               <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700">{leads.length} leads</span>
+              {leads.length >= LIMITE_LEADS && (
+                <span className="px-2 py-1 rounded-full bg-slate-200 text-slate-600" title="O PostgREST limita a 1000 linhas por consulta — use a busca ou filtre por segmento">
+                  limite de {LIMITE_LEADS} carregados
+                </span>
+              )}
               <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">{leadsProntos} prontos</span>
               {leadsPendentes > 0 && (
                 <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-700">
@@ -253,6 +273,25 @@ export default function AgentesPage() {
                 </span>
               )}
             </div>
+          </div>
+
+          <div className="px-4 py-2.5 border-b border-slate-100 flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={buscaLead}
+                onChange={(e) => {
+                  setBuscaLead(e.target.value);
+                  setLimiteLeads(20);
+                }}
+                placeholder="Buscar lead por empresa, segmento, contato ou e-mail..."
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-unifique-primary/30"
+              />
+            </div>
+            <span className="text-[10px] font-bold text-slate-400">
+              exibindo {leadsVisiveis.length} de {leadsFiltrados.length}
+            </span>
           </div>
 
           <div className="px-4 py-2.5 border-b border-slate-100 flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -280,9 +319,22 @@ export default function AgentesPage() {
               <p className="text-sm font-medium">Nenhuma conta com status Lead no momento.</p>
               <p className="text-[11px]">Cadastre a empresa em Empresas com status Lead para o SDR assumir a prospecção.</p>
             </div>
+          ) : leadsFiltrados.length === 0 ? (
+            <div className="p-8 flex flex-col items-center gap-1.5 text-slate-400">
+              <Search size={22} />
+              <p className="text-sm font-medium">Nenhum lead encontrado para “{buscaLead}”.</p>
+              <button
+                type="button"
+                onClick={() => setBuscaLead("")}
+                className="text-[11px] font-bold text-unifique-primary hover:underline"
+              >
+                Limpar busca
+              </button>
+            </div>
           ) : (
-            <ul className="divide-y divide-slate-50">
-              {leads.map((lead) => {
+            <>
+              <ul className="divide-y divide-slate-50">
+                {leadsVisiveis.map((lead) => {
                 const aberto = leadAberto === lead.id;
                 const pend = pendenciasContato(paraLead(lead));
                 const dia = etapaPorLead[lead.id] ?? 0;
@@ -448,7 +500,26 @@ export default function AgentesPage() {
                   </li>
                 );
               })}
-            </ul>
+              </ul>
+              {leadsFiltrados.length > leadsVisiveis.length && (
+                <div className="p-3 border-t border-slate-100 flex items-center justify-center gap-3 bg-slate-50/40">
+                  <button
+                    type="button"
+                    onClick={() => setLimiteLeads((n) => n + 30)}
+                    className="px-3 py-1.5 text-[11px] font-bold text-unifique-primary border border-unifique-primary/30 rounded-lg hover:bg-unifique-primary/5 transition-all"
+                  >
+                    Mostrar mais {Math.min(30, leadsFiltrados.length - leadsVisiveis.length)} leads
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLimiteLeads(leadsFiltrados.length)}
+                    className="text-[10px] font-bold text-slate-400 hover:text-slate-600"
+                  >
+                    Mostrar todos ({leadsFiltrados.length})
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
 
