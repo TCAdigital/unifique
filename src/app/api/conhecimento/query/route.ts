@@ -100,10 +100,21 @@ Informe ao usuário que a base está sendo construída e que em breve haverá in
       { role: "user", content: question },
     ];
 
+    // Prompt caching: a base de conhecimento é grande e idêntica a cada pergunta.
+    // O bloco com cache_control ephemeral (TTL de 5 min) evita reenviar/cobrar
+    // todo o contexto em perguntas em sequência.
+    const system: Anthropic.TextBlockParam[] = [
+      {
+        type: "text",
+        text: systemPrompt,
+        ...(temConhecimento ? { cache_control: { type: "ephemeral" as const } } : {}),
+      },
+    ];
+
     const response = await client.messages.create({
       model: "claude-opus-5",
       max_tokens: 2048,
-      system: systemPrompt,
+      system,
       messages,
     });
 
