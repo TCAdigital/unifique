@@ -37,8 +37,8 @@ export default function RelatoriosPage() {
       .select("id, nome, valor, vigencia_meses, custo_oportunidade, updated_at, produtos, empresas(nome)")
       .eq("fase", "Ganho")
       .order("updated_at", { ascending: false })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then(({ data }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rows: NegocioGanho[] = (data ?? []).map((n: any) => {
           const emp = Array.isArray(n.empresas) ? n.empresas[0] : n.empresas;
           return {
@@ -117,9 +117,9 @@ export default function RelatoriosPage() {
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 font-outfit">Relatórios TI</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 font-outfit">Relatório de Contratos</h1>
             <p className="text-slate-500 mt-1">
-              Análise financeira consolidada — contratos Ganhos · {new Date().getFullYear()}
+              Análise financeira consolidada por contrato — contratos Ganhos · {new Date().getFullYear()}
             </p>
           </div>
           <button

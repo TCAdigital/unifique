@@ -3,6 +3,17 @@
 import React, { useEffect, useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
+import {
+  CADENCIA_SDR,
+  GANCHOS_PLAYBOOK,
+  emailProspeccao,
+  mensagemFollowUp,
+  mensagemWhatsAppProspeccao,
+  linkEmail,
+  linkWhatsApp,
+  pendenciasContato,
+} from '@/lib/cadencia-sdr';
 import {
   Cpu,
   Search,
@@ -11,10 +22,29 @@ import {
   ShieldCheck,
   MessageSquare,
   Target,
-  RefreshCw
+  RefreshCw,
+  Mail,
+  Phone,
+  Building2,
+  ChevronDown,
+  Copy,
+  Check,
+  AlertCircle,
+  ArrowRight,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+
+interface EmpresaLead {
+  id: string;
+  nome: string;
+  segmento: string | null;
+  status: string | null;
+  contato: string | null;
+  email_contato: string | null;
+  tel: string | null;
+}
 
 const AGENTES = [
   { id: "sdr", nome: "SDR-AI Outbound", icon: Zap, cor: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20", grupo: "Prospecção" },
@@ -38,6 +68,75 @@ export default function AgentesPage() {
   const [tarefasMsgs, setTarefasMsgs] = useState<string[]>(FALLBACK_MSGS);
   const [totalTarefas, setTotalTarefas] = useState('—');
   const [followUps, setFollowUps] = useState('—');
+
+  const { user } = useAuth();
+  const [leads, setLeads] = useState<EmpresaLead[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
+  const [leadAberto, setLeadAberto] = useState<string | null>(null);
+  const [etapaPorLead, setEtapaPorLead] = useState<Record<string, number>>({});
+  const [copiado, setCopiado] = useState<string | null>(null);
+  const [convertendo, setConvertendo] = useState<string | null>(null);
+  const [erroConversao, setErroConversao] = useState<string | null>(null);
+
+  // Fila de prospecção do Agente SDR: contas com status Lead
+  useEffect(() => {
+    supabase
+      .from('empresas')
+      .select('id, nome, segmento, status, contato, email_contato, tel')
+      .eq('status', 'Lead')
+      .order('nome')
+      .then(({ data }) => {
+        setLeads((data ?? []) as EmpresaLead[]);
+        setLeadsLoading(false);
+      });
+  }, []);
+
+  function paraLead(lead: EmpresaLead) {
+    return { empresa: lead.nome, contato: lead.contato, email: lead.email_contato, tel: lead.tel };
+  }
+
+  function textoEtapa(lead: EmpresaLead, dia: number): string {
+    const base = paraLead(lead);
+    if (dia === 0) return mensagemWhatsAppProspeccao(base, user?.nome);
+    return mensagemFollowUp(dia, base);
+  }
+
+  async function copiar(leadId: string, texto: string) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(leadId);
+      setTimeout(() => setCopiado(null), 2000);
+    } catch {
+      /* clipboard indisponível no navegador */
+    }
+  }
+
+  const leadsProntos = leads.filter((l) => pendenciasContato(paraLead(l)).length === 0).length;
+  const leadsPendentes = leads.length - leadsProntos;
+
+  // Converte o lead em Negociando/Ativo — a conta sai da fila SDR e passa a
+  // ser acompanhada no Diagnóstico da Agenda do Dia.
+  async function converterStatus(lead: EmpresaLead, novo: 'Negociando' | 'Ativo') {
+    setConvertendo(lead.id);
+    setErroConversao(null);
+    try {
+      const res = await fetch('/api/empresas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: lead.id, payload: { status: novo } }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.error ?? 'Falha ao atualizar o status');
+      }
+      setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+      setLeadAberto(null);
+    } catch (e) {
+      setErroConversao(e instanceof Error ? e.message : 'Falha ao atualizar o status');
+    } finally {
+      setConvertendo(null);
+    }
+  }
 
   useEffect(() => {
     supabase
@@ -130,6 +229,227 @@ export default function AgentesPage() {
               </div>
             </motion.div>
           ))}
+        </div>
+
+        {/* Fila SDR — Leads */}
+        <div className="glass-card overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center flex-shrink-0">
+              <Zap size={18} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold">Fila SDR — Leads</h2>
+              <p className="text-[11px] text-slate-500">
+                Contas com status <strong>Lead</strong> ficam fora do Diagnóstico da Agenda do Dia. O Agente SDR
+                executa a cadência até converter em <strong>Negociando</strong> ou <strong>Ativo</strong>.
+              </p>
+            </div>
+            <div className="ml-auto flex flex-wrap items-center gap-2 text-[10px] font-bold">
+              <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700">{leads.length} leads</span>
+              <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">{leadsProntos} prontos</span>
+              {leadsPendentes > 0 && (
+                <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+                  {leadsPendentes} com contato incompleto
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="px-4 py-2.5 border-b border-slate-100 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {CADENCIA_SDR.map((e, i) => (
+              <React.Fragment key={e.dia}>
+                <div className="flex items-center gap-1.5" title={e.objetivo}>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                    D+{e.dia}
+                  </span>
+                  <span className="text-[10px] text-slate-500">{e.titulo}</span>
+                  <span className="text-[9px] font-bold text-slate-400">({e.canal})</span>
+                </div>
+                {i < CADENCIA_SDR.length - 1 && <ArrowRight size={10} className="text-slate-300 flex-shrink-0" />}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {leadsLoading ? (
+            <div className="p-8 flex justify-center text-slate-400">
+              <RefreshCw size={18} className="animate-spin" />
+            </div>
+          ) : leads.length === 0 ? (
+            <div className="p-8 flex flex-col items-center gap-1.5 text-slate-400">
+              <Building2 size={22} />
+              <p className="text-sm font-medium">Nenhuma conta com status Lead no momento.</p>
+              <p className="text-[11px]">Cadastre a empresa em Empresas com status Lead para o SDR assumir a prospecção.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-50">
+              {leads.map((lead) => {
+                const aberto = leadAberto === lead.id;
+                const pend = pendenciasContato(paraLead(lead));
+                const dia = etapaPorLead[lead.id] ?? 0;
+                const texto = textoEtapa(lead, dia);
+                const assunto =
+                  dia === 0
+                    ? emailProspeccao(paraLead(lead), user?.nome).assunto
+                    : `Acompanhamento Unifique — ${lead.nome}`;
+                const wa = linkWhatsApp(lead.tel, texto);
+                const mail = linkEmail(lead.email_contato, assunto, texto);
+                const gancho = GANCHOS_PLAYBOOK[leads.indexOf(lead) % GANCHOS_PLAYBOOK.length];
+
+                return (
+                  <li key={lead.id}>
+                    <button
+                      type="button"
+                      onClick={() => setLeadAberto(aberto ? null : lead.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-all text-left"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                        <Building2 size={15} className="text-slate-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 truncate">{lead.nome}</p>
+                        <p className="text-[10px] text-slate-400 truncate">
+                          {lead.segmento ?? 'Sem segmento'} · {lead.contato || 'sem contato principal'}
+                          {lead.email_contato ? ` · ${lead.email_contato}` : ''}
+                          {lead.tel ? ` · ${lead.tel}` : ''}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          'text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0',
+                          pend.length === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        )}
+                      >
+                        {pend.length === 0 ? 'Pronto p/ cadência' : `Falta ${pend.join(', ')}`}
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className={cn('text-slate-400 flex-shrink-0 transition-transform', aberto && 'rotate-180')}
+                      />
+                    </button>
+
+                    {aberto && (
+                      <div className="px-4 pb-4 pt-1 bg-slate-50/70">
+                        {pend.length > 0 && (
+                          <p className="flex items-start gap-1.5 text-[10px] text-amber-600 mb-2">
+                            <AlertCircle size={11} className="mt-0.5 flex-shrink-0" />
+                            <span>
+                              Complete o contato principal em <strong>Empresas</strong> (nome, e-mail e telefone)
+                              para o agente conseguir disparar a cadência por WhatsApp/O365.
+                            </span>
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {CADENCIA_SDR.map((e) => (
+                            <button
+                              key={e.dia}
+                              type="button"
+                              onClick={() => setEtapaPorLead((p) => ({ ...p, [lead.id]: e.dia }))}
+                              className={cn(
+                                'px-2 py-1 rounded-lg text-[10px] font-bold border transition-all',
+                                dia === e.dia
+                                  ? 'bg-unifique-primary text-white border-unifique-primary'
+                                  : 'bg-white text-slate-500 border-slate-200 hover:border-unifique-primary/40'
+                              )}
+                            >
+                              D+{e.dia} · {e.canal}
+                            </button>
+                          ))}
+                        </div>
+
+                        <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-slate-600 bg-white border border-slate-200 rounded-lg p-3 max-h-40 overflow-y-auto font-sans">
+                          {texto}
+                        </pre>
+
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <a
+                            href={wa || undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(
+                              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all',
+                              wa
+                                ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                : 'bg-slate-100 text-slate-400 pointer-events-none'
+                            )}
+                          >
+                            <MessageSquare size={12} /> WhatsApp
+                          </a>
+                          <a
+                            href={mail || undefined}
+                            className={cn(
+                              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all',
+                              mail
+                                ? 'bg-unifique-primary text-white hover:bg-unifique-primary/90'
+                                : 'bg-slate-100 text-slate-400 pointer-events-none'
+                            )}
+                          >
+                            <Mail size={12} /> E-mail
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => copiar(lead.id, texto)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:border-unifique-primary/40 transition-all"
+                          >
+                            {copiado === lead.id ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                            {copiado === lead.id ? 'Copiado' : 'Copiar'}
+                          </button>
+                          {lead.tel && (
+                            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                              <Phone size={11} /> {lead.tel}
+                            </span>
+                          )}
+                          <a
+                            href="/integracoes/o365"
+                            className="flex items-center gap-1 text-[10px] font-bold text-slate-600 hover:text-unifique-primary"
+                            title="Lead respondeu? Consulte a agenda e envie o convite pelo Office 365"
+                          >
+                            <Calendar size={11} /> Agendar (O365)
+                          </a>
+                          <a href="/empresas" className="ml-auto text-[10px] font-bold text-unifique-primary hover:underline">
+                            Editar contato →
+                          </a>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Qualificar:</span>
+                          {(['Negociando', 'Ativo'] as const).map((novo) => (
+                            <button
+                              key={novo}
+                              type="button"
+                              disabled={convertendo === lead.id}
+                              onClick={() => converterStatus(lead, novo)}
+                              className={cn(
+                                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all disabled:opacity-50',
+                                novo === 'Negociando'
+                                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                              )}
+                              title={`Mover ${lead.nome} para ${novo} — sai da fila SDR e entra no Diagnóstico`}
+                            >
+                              <Target size={12} />
+                              {convertendo === lead.id ? 'Salvando...' : `→ ${novo}`}
+                            </button>
+                          ))}
+                          <span className="text-[10px] text-slate-400">
+                            move a conta da fila SDR para o Diagnóstico da Agenda do Dia
+                          </span>
+                        </div>
+
+                        {erroConversao && leadAberto === lead.id && (
+                          <p className="mt-1 text-[10px] font-medium text-red-600">{erroConversao}</p>
+                        )}
+
+                        <p className="text-[10px] text-slate-500 mt-2">
+                          <strong>Gancho do playbook · {gancho.frente}</strong> ({gancho.parceiros}): {gancho.pergunta}
+                        </p>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         {/* Live Logs */}

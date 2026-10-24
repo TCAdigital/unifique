@@ -96,7 +96,7 @@ const MENU_ITEMS = [
     items: [
       { id: "performance",    label: "Performance",       icon: Gauge,        href: "/performance"   },
       { id: "ti-vendas",      label: "Vendas e Finanças", icon: BarChart3,    href: "/ti/vendas"     },
-      { id: "ti-relatorios",  label: "Relatórios TI",    icon: FileBarChart, href: "/ti/relatorios" },
+      { id: "ti-relatorios",  label: "Relatório de Contratos", icon: FileBarChart, href: "/ti/relatorios" },
     ],
   },
   {

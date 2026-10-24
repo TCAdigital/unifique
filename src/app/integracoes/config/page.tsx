@@ -206,7 +206,7 @@ export default function ConfigPage() {
             {[
               { perfil: "Administrador", cor: "#7C3AED", acesso: "Irrestrito — todos os módulos e dados", usuario: "Tadeu Alves" },
               { perfil: "Gerente Comercial", cor: "#0057B8", acesso: "Vê dados de toda a equipe · Bloqueia: Configurações", usuario: "Maria Souza" },
-              { perfil: "Consultor", cor: "#1D9E75", acesso: "Vê apenas próprios dados · Bloqueia: Configurações, Relatórios TI", usuario: "João Silva, Ana Paula" },
+              { perfil: "Consultor", cor: "#1D9E75", acesso: "Vê apenas próprios dados · Bloqueia: Configurações, Relatório de Contratos", usuario: "João Silva, Ana Paula" },
               { perfil: "Pré Venda", cor: "#D97706", acesso: "Vê apenas próprios dados · Bloqueia: Orçamento, Vendas TI, Config", usuario: "Carlos Lima" },
             ].map((p, i) => (
               <div key={p.perfil} className={cn("flex items-center gap-4 px-5 py-4", i > 0 && "border-t border-slate-100 dark:border-white/5")}>
